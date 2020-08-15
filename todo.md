@@ -1,5 +1,24 @@
 # Todo
 
+  
+- [ ] java 语法
+  - [ ] Think in Java
+- [ ] 多线程
+- [ ] Java Web
+- [ ] JVM虚拟机
+- [ ] Spring
+  - [ ] Spring Frame Work
+  - [ ] Spring Boot
+- [ ] 大数据
+  - [ ] Map-Reduce
+  - [ ] Hadoop
+  - [ ] Spark
+  - [ ] Hive
+- [ ]  Nginx
+- [ ]  Redis
+- [ ]  Redius
+- [ ]  
+
 - [x] This is an example of a todo list item that's complete
 - [x] Todo lists are useful for keeping organised and focused
 - [ ] This one is not completed yet
