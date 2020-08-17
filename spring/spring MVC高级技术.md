@@ -1,4 +1,4 @@
-# Spring 高级技术
+# Spring  MVC高级技术
 ## multipart上传文件
 ### 自定义DispatcherServlet配置
 * 在AbstractAnnotationConfig-DispatcherServletInitializer将DispatcherServlet注册到Servlet容器中时，会调用customizeRegistration,并将Servlet注册后得到的Registration.Dynamic传递进来，重载customizeRegistration方法，实现对DispatcherServlet的自定义配置   
