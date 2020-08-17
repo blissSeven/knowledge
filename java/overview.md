@@ -652,6 +652,7 @@ java.math.BigInteger就是用来表示任意大小的整数。BigInteger内部�
 ### 反射
 反射--程序在运行期间可以拿到一个对象的所有信息，解决在运行期间，对某个实例一无所知的情况下，如何调用其方法
 
+<<<<<<< HEAD
 * class 本质是数据类型，没有继承关系的数据类型无法相互赋值
 * class 类时JVM在执行过程中动态加载的，第一次读取到一种class类型时，将其加载进内存。
 * 每加载一种class类，JVM创建一个Class 类型的实例，并将两者关联起来（Class 一个名字为Class的class类 :laughing:  :confused:）
@@ -733,6 +734,8 @@ java.math.BigInteger就是用来表示任意大小的整数。BigInteger内部�
           }
       }
    ```
+=======
+>>>>>>> 3591157ec1f4a7a55515054d5db1a795fded1b75
 
 * 重写（Override） VS 重载（Overload）
   * Override
