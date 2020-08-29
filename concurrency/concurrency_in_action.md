@@ -1,0 +1,543 @@
+# Concurrency-in-action
+java并发编程实战
+## 1 并发源头
+CPU、内存、I/O设备三者速度不一致
+* CPU增加缓存，以平衡内存速度
+* OS增加进程、线程，以分时复用CPU，均衡CPU与I/O设备的速度
+* 编译程序优化指令执行次序，使缓存能更有效利用
+###  1.1缓存导致的可见性问题
+每科CPU有自己的缓存，多个线程在不同CPU上执行时，线程操纵的是不同的CPU缓存，难以保证CPU缓存与内存的一致性      
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/08/18/20-41-44-c88351ef301602298730f2cf718c84b9-20200818204143-e0e48e.png)
+```java
+public class Task{
+    private long count = 0;
+    private void add10k(){
+        int idx=0;
+        while(idx++ < 1000){
+            count+=1;
+        }
+    }
+    public static long calc(){
+        final Task task = new Task();
+        Thread th1 = new Thread( () -> {
+            test.add10k();
+        });
+        Thread th2 = new Thread( () -> {
+            test.add10k();
+        });
+        th1.start();
+        th2.start();
+        th1.join();
+        th2.join();
+        return count;
+    }
+}
+```
+**假设线程A/B同时执行，同时将count=0读到各自的缓存中，执行完count+=1后，各自缓存中值为1，同时写入内存后，内存中为1，，而不是2。之后各自的CPU缓存中有了count值，两个线程都基于缓存中count计算，最后count值小于20000**.
+### 1.2 线程切换导致的原子性问题
+count+=1   
+* 把变量count从内存加载到CPU寄存器
+* 在寄存器进行+1操作
+* 将结果写入内存(也有可能写入缓存)   
+任务切换发生在任何一条CPU执行执行完毕。
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/08/18/20-54-16-1daa9da1f448d8f5702f668fb212f5db-20200818205416-eda2c4.png)
+### 1.3 编译优化导致的有序性问题
+双重锁的单例模型
+```java
+public class Singleton{
+    static Singleton instance;
+    static Singleton getInstance(){
+        if(instance == null){
+            synchronized(Singleton.class){
+                if(instance == null){
+                    instance = new Singleton();
+                }
+            }
+        }
+        return instance;
+    }
+}
+```
+new操作
+* 1 分配内存M
+* 2 在内存M上初始化Singleton对象
+* 3 M的地址赋值给instance变量   
+编译器优化后
+* 1 分配内存M
+* 2 M的地址赋值给instance变量 
+  *  **A在此处发生线程切换时，B线程获得的instance不为null，但是还未初始化完成，触发空指针异常**
+* 3 在内存M上初始化Singleton对象
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/08/18/21-06-13-2aab54accc7b6cf8c82d7290d60a605a-20200818210612-41f833.png)
+## 2 java内存模型
+缓存的可见性，编译优化的有序性，可通过按需禁用缓存和编译优化。java内存模型规范JVM方法，volatile,synchronized,final关键字以及Happens-Before原则
+### volatile
+禁用缓存，对这个变量的读写，不能使用CPU缓存，必须从内存中读取或写入
+### Happens-Before
+前面一个操作的结果对于后续操作是可见的。Happens-Before约束了编译器优化，要求编译优化后遵守该原则。
+* 程序的顺序性原则
+    * 程序前面对某个变量的修改对后续操作可见
+* volatile原则
+  * 对一个volatile变量的写操作，Happens-Before于后续对这个volatile变量的读操作
+* 传递性原则
+  * A Happens-Before B,B Happens-Before C,那么A Happens-Before C.
+   ```java
+   class volatileexam{
+       int x = 0;
+       volatile boolean v = fale;
+       public void writer(){
+           x = 42;          
+           v = true;  //顺序性原则，x=42  happens-before v=true 对v=true可见
+       }
+       public void reader(){
+           if(v == true){  //volatile原则，v的写 happens-before v的读         
+               // what is the value of X ???  //传递性原则  x=42的写 happens-before v的读
+           }
+       }
+   }
+   ```
+* 管程中锁的规则
+  * 对一个锁的解锁happens-before后续对这个锁的加锁
+    ```java
+    synchronized(this){//自动加锁
+        if( this.x < 12){
+            this.x = 12;
+        }
+    }//自动解锁  先获得锁的线程 对变量的修改 解锁后 可见与后获得锁的线程
+    ```
+* 线程start()原则
+  * 主线程A启动子线程B后，子线程B能够看到主线程在启动子线程B前的操作
+    ```java
+    Thread B = new Thread( () -> {
+        //线程A中启动线程B，即调用B.start方法，对var的修改，此处可见
+        //
+    });
+    var = 77;
+    B.start();
+    ```
+*  线程join原则
+   *  主线程A调用B子线程，并等待子线程B返回，子线程B中对共享变量的操作，A线程可以看到
+      ```java
+      Thread B = new Thread( () -> {
+          var=55;
+      })//
+      B.start();
+      B.join();
+      //此处可见var=55
+      ```
+* final
+  * 指示这个变量生而不变，可以尽情优化
+  * 对final类型变量重拍进行了约束，1.5以后，只需要保证构造函数没有逸出
+* 线程中断原则
+  * 对线程interrupt方法的调用先行发生于被中断线程的代码检测到中断的发生，可通过Thread.interrupted检测是否有中断发生
+* 对象终结原则
+  * 一个对象的初始化完成（构造函数执行完毕）先行发生于它的finalize方法的开始
+## 3 互斥锁
+* 同一时刻只有一个线程执行---互斥
+* 称需要互斥执行的代码段为临界区
+* 锁和锁保护的资源要关联
+### synchronized
+ * 当修饰静态方法时，锁定的是当前类的Class对象
+ * 当修饰非静态方法时，锁定的是当前实例对象this
+    ```java
+    class X{
+        synchronized( X.class) static void bar(){}
+    }
+    class X{
+        synchronized(this) static void bar(){
+            //临界区 互斥
+        }
+    }
+    ```
+    ```java
+    class safecalc{
+        long value = 0l;
+        synchronized long get( ){ //执行完毕addOne 后，value值不一定对get方法可见，管程中锁的规则，只保证后续对这个锁加锁的可见性，所以要加synchronized !!!
+            return value;
+        }
+        synchronized void addOne( ){
+            value += 1;
+        }
+    }
+    ```
+* 一把锁可以锁多个资源！！，不能用多把锁保护一个资源
+### 保护多个资源
+**如果资源没有关系，那么声明不同的锁管理不同的资源，否则，找一个粒度更大的锁，能够覆盖所有要保护的资源。以及对于所有的访问路径，也要设置合适的锁**
+#### 保护没有关联关系的资源
+* 申请不同的锁对不同关联的资源进行保护
+    ```java
+    class Account{
+        private final Object balLock = new Object();//不同锁管理不同资源，也可以this锁住所有资源 final  **确保了是同一个对象**！！！
+
+        private  Integer balance;
+
+        private final Object pwLock() = new Object();
+
+        private String password;
+
+        void withdraw( Integer amt){
+            synchronized(balLock){
+                if (this.balance > amt ){
+                    this.balance -= amt;
+                }
+            }
+        }
+        void updatePassword(String pw) {
+            synchronized(pwLock){
+                this.password = pw;
+            }
+        }
+    }
+    ```
+#### 保护有关联关系的资源 
+```java
+class Account{
+    private int balance;
+    synchronized void transfer(Account target, int amt){//synchronized 锁住的是this，只保护了this.balance,当A转账B，B转账C，锁住的是 A.this B.this保护的是A.balance,B.balance
+        if(this.balance > amt){
+            this.balance -= amt;
+            target.balance += amt;
+        }
+    }
+}
+```
+* 只要锁能覆盖所有受保护的资源即可
+   ```java
+     class Account{
+        private Object lock;
+        private int balance;
+
+        private Account(){}        //将默认构造private
+        public Account(Object lock){ //创建Account时，传入同一个object lock
+            this.lock = lock;
+        }
+       void transfer( Account target, int amt){
+           synchronized(locak) {
+             if(this.balance > amt){
+            this.balance -= amt;
+            target.balance += amt;
+        }
+       }
+       }
+    }
+   ```
+   ```java
+       class Account{
+        private int balance;
+   
+       void transfer( Account target, int amt){
+           synchronized(Account.class) { //所有Account 对象共享一个Account.class 
+             if(this.balance > amt){
+            this.balance -= amt;
+            target.balance += amt;
+        }
+       }
+       }
+    }
+   ```
+## 死锁
+线程1 A转账B，线程2 B转账A，线程1获得A，等待获得  B，线程2 获得B，等待获得A。**一组互相竞争资源的线程因互相等待造成的永久阻塞现象**。
+```java
+class Account{
+    public int balance;
+    void transfer(Account target, int emt){
+        synchronized(this){
+            synchronized(target){
+                if(this.balance > emt){
+                    this.balance -= emt;
+                    target.balance += emt;
+                }
+            }
+        }
+    }
+}
+```
+死锁条件，只要破坏一个就可以避免死锁
+* 互斥 共享资源只能被一个线程占有
+* 占有且互相等待，线程T1已经占有X，在等待获得Y时，不释放X             --------可以一次性申请所有资源
+* 不可抢占，其他线程不能强行抢占T1线程的占有资源      --------占用资源的线程进一步申请资源时，申请不到就释放获得的资源
+* 循环等待，线程T1等待线程T2占有的资源，线程T2也等待线程T1占有的资源-------按照资源的序号，顺序或倒序申请资源
+ ```java
+ //占有且互相等待
+ class Allocation{
+     private List<Object> als = new ArrayList<>();
+     synchronized boolean apply( Object from, Object to){
+         if(als.contains(from) || als.contains(to)){
+             return false;
+         }
+         else{
+             als.add(from);
+             als.add(to);
+         }
+         return true;
+     }
+     synchronized void free(Object from, Object to){
+         als.remove(from);
+         als.remove(to);
+     }
+ }
+ public Account{
+     private Allocation actr; /////应为 单例 ！！！
+     private int balance;
+     void transfer(Account target, int emt){
+         while(!actr.apply(this.target)){}
+         try{
+             synchronized(this){
+                 synchronized(target){
+                     //.....
+                 }
+             }
+         }finally{
+             actr.free(this,target);
+         }
+     }
+ }
+ ```
+
+ ```java
+ // 循环等待
+ class Account{
+     private int balance;
+     public int id;
+     void transfer(Account target, int emt){
+         Account left=this;
+         Account right=target;
+         if(this.id < target.id){
+                left=target;
+                right=this;
+         }
+         synchronized(left){
+             synchronized(right){
+                 ////...................
+             }
+         }
+     }
+ }
+ ```
+## 等待通知
+线程首次获取互斥锁，当线程要求的条件不满足时，释放互斥锁，进入等待状态，当要求的条件满足时。通知等待的线程，重新获取互斥锁。
+每个互斥锁有自己独立的等待队列。
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/08/20/21-02-10-e89b0f1533e58a49e23a966e063a11aa-20200820210210-589650.png)
+* 首先等待队列中的一个线程获得锁进入临界区后，条件不满足，那么释放锁，并再次进入等待队列，其他等待队列中的线程可以获得锁。
+* 当条件满足时，`notify``notifyAll`可以通知等待队列中的线程，条件曾经满足过。
+* 被通知的线程，再次获得锁，进入临界区，再次判断条件是否满足
+* 如果锁住的是target，那么一定是`target.wait``target.notify``target.notifyAll`(这三者使用的前提是已经获得锁)
+    ```java
+    class Allocation{
+        List<Object> als = new ArrayList<>();
+        synchronized void apply(Object from,Object to){
+            while(als.contains(from) || als.contains(to)){
+                try{
+                    wait();
+                }catch(Exception e){
+                }
+            }
+            als.add(from);
+            als.add(to);
+        }
+        synchronized void free(Object from,Object to){
+                als.remove(fomr);
+                als.remove(to);
+                notifyAll();
+        }
+    }
+    ```
+* 尽量使用`notifyAll`，通知等待队列所有线程。`notify`会通知等待队列中随机一个线程
+* 范式 如下，尽量誊抄
+    ```java 
+    while(条件不满足){
+        wait();
+    }
+    ```
+## 07 安全、活跃性以及性能问题
+### 安全性问题
+线程安全程序，即解决原子性问题、可见性问题、有序性问题。只在**存在共享数据且该数据会发生变化，即有多个线程会同时读写数据的时候需要分析**
+* 数据竞争
+  * 多个线程访问数据，其中至少一个线程会写数据
+* 竟态条件
+  * 程序的执行结果依赖于线程执行的顺序
+  * 程序的执行依赖于某个状态变量，当某个线程发现状态变量满足并执行时，其他线程同时修改了状态变量，并且状态变量条件不满足执行条件了。
+    ```java
+    if( 状态变量满足执行条件){
+        执行操作；
+    }
+    ```
+### 活跃性问题
+某个操作无法继续执行下去，死锁、活锁、饥饿
+* 活锁
+  * 相互让步
+  * 谦让时，随机等待一个时机
+* 饥饿
+  * 线程因无法访问所需资源而无法执行下去
+  * 资源充足
+  * 避免持有锁的线程长时间运行
+  * 公平分配
+    * 公平锁，线程的等待队列的线程的等待有顺序，先来的先获得资源
+### 性能问题
+* 阿姆达尔定律   
+   $$ S=\frac{1}{((1-p)+\frac{p}{n})}$$
+   n 为CPU核数，p为并行百分比，1-p为穿刺能够百分比，串行比为5%时，最高提高性能20%。
+* 使用无锁的算法和数据结构
+  * 线程本地存储
+  * 写时复制
+  * 乐观锁
+* 减少锁的持有时间
+  * 锁的粒度要小
+  * 读写锁
+* 指标
+  * 吞吐量 ---单位时间能处理的请求数量
+  * 延迟 ---从发出请求到收到响应的时间
+  * 并发量 ---同时处理的请求数量
+## 08 管程
+管程---管理共享变量以及对共享变量的操作过程，让它们支持并发，管理类的成员变量和成员方法，让这个类是线程安全的。
+### MESA模型
+* 互斥问题
+  * 同一时间只允许一个线程访问资源
+  * 将共享变量及其对应操作封装起来
+* 同步问题
+  * 线程之间的通信和合作
+  * 条件变量和等待队列
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/08/29/16-02-53-21b72f68f8ac222e870493a9526d7d7b-20200829160253-f6fde2.png)
+* 框的入口有一个等待队列，只允许一个线程进入入口，其他进入到入口等待队列中
+* 当线程的发现条件不满足时，通过`wait`进入相应条件变量的等待队列中
+* 当条件满足时，`notify notifyAll`通知线程，线程从条件变量的等待队列中出去，再次进入到入口等待队列
+    ```java 
+     public class BlockedQueue<T>{
+          final Lock lock = new ReentrantLock();
+          final Condition notFull = lock.newCondition(); //不满
+          final Condition notEmpty = lock.newCondition;//不空
+          void enq(T x){
+              lock.lock();
+              try{
+                  while(队列已满)
+                  {
+                           //等待队列不满
+                    notFull.await();
+                  }
+                    //入队操作
+                    //通知可以出对
+                    notEmpty.signal();
+              }finally{
+                lock.unlock();
+              }
+          }
+          void deq(){
+              lock.lock();
+              try{
+                        while(队列已空)
+                        {
+                            notEmpty.await();
+                        }
+                        //出队操作
+                        notFull.signal()；
+              }finally{
+                  lock.unlock();
+              }
+          }
+     }
+    ```
+    * await 等同于wait 
+    * signal 等同于notify
+### wait 
+```java
+while(条件不满足){
+    wait();
+}
+```  
+* MESA管程模型中，T2通知T1后，T2继续执行，T1不立即执行，**从条件变量的等待队列进入到入口等待队列中 ?????????**。好处，notify不用放到代码最后，副作用，当T1再次执行时，可能曾经满足的条件现在不满足，所以需要以循环的方式检测条件变量。
+* 一个线程执行了wait方法以后，它不会再继续执行了，直到被notify唤醒，如果采用if，那么当唤醒后，就会直接执行while后的代码，而此时条件或许已经不满足了
+### notify VS notifyAll
+尽量使用notifyAll,除非
+* 所有等待线程拥有相同的等待条件
+* 所有等待线程被唤醒后，执行相同的操作
+* 只需要唤醒一个线程
+* 重点---while里面的等待条件是相同的
+* 对于队列不满这个条件变量，其阻塞队列里的所有线程都是在等待 队列不满这个条件。都是执行下面3行代码
+    ```java
+    while(队列已满){
+        notFull.await();
+    }
+    ```
+### 总结
+java中的管程只有一个条件变量,`synchronized`修饰的代码块在编译期间会自动生相关加锁和解锁的代码    
+## java线程的声明周期
+### 通用线程声明周期
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/08/29/17-13-15-4b04a01a989f1b7d114c7fb47e4ff91b-20200829171315-6cb4ac.png)
+* 初始状态
+  * 语言层面 线程被创建，不允许分配CPU执行
+  * 操作系统层面，未创建线程
+* 可运行状态
+  * 语言层面 可以分配CPU执行
+  * 操作系统 已创建线程
+  * 运行状态
+    * 被分配到CPU的线程
+  * 休眠
+    * 运行中的线程调用阻塞的API（阻塞方式读写硬盘文件）或等待某个事件（条件变量），释放CPU。当等待的事件完成了，进入可执行状态
+    * 线程执行完毕
+### java线程生命周期
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/08/29/17-20-11-302e964599179fbb679ea1543d75a4ee-20200829172011-69451f.png)
+* 六大状态
+  * new
+  * Runnable
+  * Blocked
+  * Waiting
+  * Timed_waiting
+  * Terminated
+* 可运行--->休眠
+  * runnable->Blocked
+    * 线程等待synchronized的隐式锁，当获得锁时，blocked--->runnable
+    * java在调用阻塞api时，操作系统状态上会阻塞，java线程状态不发生变化，还是runnable状态。jvm不关系操作系统调度相关状态，等待cpu使用（操作系统可执行状态）与等待i/o（操作系统休眠状态）没区别，归入runnable状态
+  * runnable--->Waiting
+    * 获得synchronized隐式锁的线程调用无参的`object.wait（）`
+    * 无参数的`thread.join()`，执行完毕Waiting--->runnable
+    * 调用`LockSupport.park()`runnable--->waiting,`LockSupport.unpark(Thread thread)` waiting--->runnable
+  * runnable--->Timed_waiting
+    * `Thread.sleep(long millis)`
+    * `object.wait(long timeout)`,获得管程隐式锁的线程
+    * `Thread.join(long millis)`
+    * `LockSupport.parkNanos(object blocker,long deadline)`
+    * `LockSupport.parkUntil(long deadline)`
+* 初始状态--->可运行/运行
+  * 继承Thread对象，重写run方法
+     ```java
+     class mythread extends Thread{
+         public void run{
+
+         }
+     }
+     ```
+   * 实现Runnable 接口，重写run方法，并将该类作为创建thread对象的参数
+    ```java
+    class Runner implements Runnable{
+        @Override
+        public void run(){
+
+        }
+    }
+    Thread thread = new Thread(new Runner());
+    ```
+    之后调用`thread.start()`进入runnable状态
+* 可运行/运行--->终止 runnable--->terminated
+  * stop() @Deprated 已抛弃，立即杀死线程，可能来不及释放锁
+  * interrupt 方法
+    * 异常方式
+      * A处于waiting 或者Timed_waiting 时，其他线程调用A的interrupt，A会回到runnable状态
+        * wait join sleep 都会throws interruptedException异常,触发条件就是其他线程调用了该线程的interrupt 方法
+      * A处于runnable状态时，
+        * 并且阻塞在`java.nio.channels.interruptibleChannel`时，其他线程调用A.interrupt，线程A触发java.nio.channels,ClosedByInterruptException
+        * 阻塞在`java.nio.channels.Selector`上，其他线程调用A.interrupt，线程A的`java.nio.channels.Selector`会立即返回？？？？
+    * 主动方式
+      * 调用`A.isInterrupted()`方法，检测自己是不是被中断了
+### 总结
+可通过jstack命令或者JAVA VisualVM工具导出线程栈信息
+## 10 线程数量
+### 目的提升I/O利用率和CPU利用率
+* CPU密集计算型
+  * 线程数量=CPU核数+1（+1为线程偶尔内存页失效或阻塞时，可以替补）
+* I/O密集
+  * 最佳线程=CPU核数×（1+（IO耗时/CPU耗时））
+### 总结
+压测时，关注CPU、IO利用率和性能指标（响应时间、吞吐量）之间的关系
+
+
+    
+

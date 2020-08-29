@@ -25,6 +25,12 @@
     - [文件](#文件)
   - [异常](#异常)
     - [反射](#反射)
+      - [Class 类](#class-类)
+      - [访问字段](#访问字段)
+      - [调用方法](#调用方法)
+      - [获取继承关系](#获取继承关系)
+      - [动态代理](#动态代理)
+    - [重写（Override） VS 重载（Overload）](#重写override-vs-重载overload)
 ## 语法  
 ### 变量
 *  $a 合法标识符
@@ -477,6 +483,15 @@ java.math.BigInteger就是用来表示任意大小的整数。BigInteger内部�
   * 任何类的构造方法，编译器默认会在子类的构造函数调用父类的默认构造函数，调用失败则异常
 * 向上转型
   * 子类向上转型为父类
+  * `isAssignableFrom` 判断上转型是否成立
+     ```java
+     Number.class.isAssignableFrom(Integer.class)
+     ```
+    * `instanceof` 判断一个实例是否是某个类型
+       ```java
+       Object n = Integer.valueOf(123);
+       boolean isDouble = n instanceof Double;
+       ```
 * 向下转型
   * 只有当父类原来是一个子类的引用时，转型成功（父类由子类向上转型而成）
   * 通过 instanceof 判断
@@ -651,11 +666,7 @@ java.math.BigInteger就是用来表示任意大小的整数。BigInteger内部�
    * SLF4J+Logback
 ### 反射
 反射--程序在运行期间可以拿到一个对象的所有信息，解决在运行期间，对某个实例一无所知的情况下，如何调用其方法
-<<<<<<< HEAD
-=======
-
-<<<<<<< HEAD
->>>>>>> 508a375ddc9ecb4ec9b7b6b8ed69fcaac2e440d8
+#### Class 类
 * class 本质是数据类型，没有继承关系的数据类型无法相互赋值
 * class 类时JVM在执行过程中动态加载的，第一次读取到一种class类型时，将其加载进内存。
 * 每加载一种class类，JVM创建一个Class 类型的实例，并将两者关联起来（Class 一个名字为Class的class类 :laughing:  :confused:）
@@ -691,7 +702,7 @@ java.math.BigInteger就是用来表示任意大小的整数。BigInteger内部�
      ```
   * 获取class 信息
     ```java
-                System.out.println("Class name: " + cls.getName());
+               System.out.println("Class name: " + cls.getName());
               System.out.println("Simple name: " + cls.getSimpleName());
               if (cls.getPackage() != null) {
                   System.out.println("Package name: " + cls.getPackage().getName());
@@ -737,13 +748,189 @@ java.math.BigInteger就是用来表示任意大小的整数。BigInteger内部�
           }
       }
    ```
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 3591157ec1f4a7a55515054d5db1a795fded1b75
->>>>>>> 508a375ddc9ecb4ec9b7b6b8ed69fcaac2e440d8
+#### 访问字段
+更多的给工具或者底层框架使用，目的是在不知道目标实例任何信息的情况下，获取特定字段的值   
+* 通过Class实例获取字段信息
+  * `Field getField(name)` 获取public，包括从父类继承的字段
+  * `Field getDeclaredField(name)` 获取本类所有字段，包括private，不能获取继承的字段（获取的private字段，人不能访问该字段的值，除非 `setAccessible(true)`）
+  * `Field[] getFields()` 获取所有public字段(包括父类)
+  * `Field[] getDeclaredFields()`
+  * 一个Field对象包含一个字段的所有信息
+    * `getName` 返回字段名称
+    * `getType` 字段类型 String.class
+    * `getModifiers()` 字段修饰符 private/public/final
+     ```java
+      public final class String{
+        private final byte[] value;
+      }
 
-* 重写（Override） VS 重载（Overload）
+     Field f = String.class.getDeclaredField("value");
+      f.getName(); // "value"
+      f.getType(); // class [B 表示byte[]类型
+      int m = f.getModifiers();
+      Modifier.isFinal(m); // true
+      Modifier.isPublic(m); // false
+      Modifier.isProtected(m); // false
+      Modifier.isPrivate(m); // true
+      Modifier.isStatic(m); // false
+     ```
+   * 获取字段值
+     * `Field.get(Object)` 获取指定实例的指定字段的值
+       ```java
+       Object p = new Person("Xiao Ming")
+       Class c = p.getClass();
+       Field f = c.getDecalaredField("name");
+       f,setAccessible(true); //不管这个字段是否是public，一律通过访问
+       Object value = f.get(p);//获取指定实例的指定字段的值
+       ```
+     * setAccessible(true)可能会失败,如果JVM运行期存在SecurityManager，那么它会根据规则进行检查，有可能阻止setAccessible(true)
+   * 设置字段值
+     * 修改非public字段，需要首先调用setAccessible(true)
+     * `Field.set(Object,Object)` //指定的实例/待修改的值
+       ```java
+            public class Main {
+        public static void main(String[] args) throws Exception {
+            Person p = new Person("Xiao Ming");
+            System.out.println(p.getName()); // "Xiao Ming"
+            Class c = p.getClass();
+            Field f = c.getDeclaredField("name");
+            f.setAccessible(true);
+            f.set(p, "Xiao Hong");
+            System.out.println(p.getName()); // "Xiao Hong"
+          }
+          }
+
+          class Person {
+              private String name;
+              public Person(String name) {
+                  this.name = name;
+              }
+
+              public String getName() {
+                  return this.name;
+              }
+            }
+       ```
+#### 调用方法
+* Method
+  * 获取method
+  * `Method getMethod(name,class)`       获取public 方法 包括从父类继承的
+  * `Method getDeclaredMethod(name,class)`获取当前类的某个method 不包括父类
+  * `Method[] getMethods()`
+  * `Method[] getDeclaredMethods()`
+* Method 属性
+  * `getName()` 返回方法名称
+  * `getReturnType()` 返回类型，一个Class类型表示 String.class
+  * `getParameterTypes()` Class数组表示的参数类型 {String.class,int.class}
+  * getModifiers() int 表示的修饰符
+* 调用method
+  * 通用方法
+    * Method.invoke(Object,parameter)// 对object对象的method方法调用parameter参数
+      ```java
+        String s="hello";
+        Method m=String.class.getMethod("substring",int.class)//substring  int 参数
+        String r = (String) m.invoke(s,6);
+      ```
+  * 静态方法
+    ```java
+     // 获取Integer.parseInt(String)方法，参数为String:
+    Method m = Integer.class.getMethod("parseInt", String.class);
+    // 调用该静态方法并获取结果:
+    Integer n = (Integer) m.invoke(null, "12345");
+    ```
+* 非public 方法
+    ```java
+       Person p = new Person();
+        Method m = p.getClass().getDeclaredMethod("setName", String.class);
+        m.setAccessible(true);
+        m.invoke(p, "Bob");
+
+              class Person {
+          String name;
+          private void setName(String name) {
+              this.name = name;
+          }
+      }
+    ```
+* 多态
+  * invoke时，会传入实际调用的对象，所以反射支持多态
+* 构造方法
+  * Constructor总是当前类定义的构造方法，和父类无关，因此不存在多态的问题
+  *   调用非public的Constructor时，必须首先通过setAccessible(true)设置允许访问。setAccessible(true)可能会失败。
+  * `Class.newInstance()` 只能调用该类public无参数构造方法。有参/非public no
+  * `getConstructor(class...)`  获取某个public Constructor
+  * `getDeclaredConstructor(class)` 获取某个constructor 
+  * `getConstructors(class...)`  
+  *  `getDeclaredConstructor(class)`
+    ```java
+    Person p = new Person();
+    Person p1 = Person.class.newInstance();
+
+     // 获取构造方法Integer(int):
+        Constructor cons1 = Integer.class.getConstructor(int.class);
+        // 调用构造方法:
+        Integer n1 = (Integer) cons1.newInstance(123);
+        System.out.println(n1);
+
+        // 获取构造方法Integer(String)
+        Constructor cons2 = Integer.class.getConstructor(String.class);
+        Integer n2 = (Integer) cons2.newInstance("456");
+        System.out.println(n2);
+    ```
+#### 获取继承关系
+*  获取父类Class
+   *  class.getSuperclass(); 一直到object父类null
+    ```java
+    Class i = Integer.class;
+    Class n = i.class.getSuperclass();
+    ```  
+  * 获取interface
+    * class.getInterfaces 返回当前类直接实现的接口类型，不包括父类实现的接口
+    * 此外，对所有interface的Class调用getSuperclass()返回的是null，获取接口的父接口要用getInterfaces 
+    * 没有implements接口时返回空数组
+      ```java
+       Class s = Integer.class;
+        Class[] is = s.getInterfaces();
+        for (Class i : is) {
+            System.out.println(i);
+        }
+        //interface java.lang.Comparable
+         // interface java.lang.constant.Constable
+         // interface java.lang.constant.ConstantDesc
+      ```
+#### 动态代理
+* 一般接口均 向上转型并指向某个实例，动态代理可以在运行期间动态创建interface实例
+  * 定义InvocationHandler实例，负责接口的方法调用
+  * 通过Proxy.newProxyInstance()创建interface实例 
+    * 参数 ClassLoader 接口类
+    * 需要实现的接口数组，至少需要传入一个接口进去
+    * 处理接口方法调用的InvocationHandler
+  * 将返回的Object强制转型为接口
+     ```java
+         interface Hello{
+          void morning(String name);
+      }
+        public class ReflectionTest {
+        public static void main(String[] args) {
+            InvocationHandler handler = new InvocationHandler() {
+                @Override
+                public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                        System.out.println(method);
+                        if (method.getName().equals("morning")) {
+                            System.out.println("good morning" + args[0]);
+                        }
+                        return null;
+                    }
+                };
+                Hello hello = (Hello) Proxy.newProxyInstance(
+                        Hello.class.getClassLoader(),
+                        new Class[]{ Hello.class },
+                        handler);
+                hello.morning("Bob");
+            }
+        }
+     ```
+### 重写（Override） VS 重载（Overload）
   * Override
     * 重写方法不能抛出新的异常或者比被重写方法方法更加宽泛的异常
     * 声明为static的方法不能重写，但是可以再次声明

@@ -1,11 +1,14 @@
 # Todo
 
-  
+- [ ] OJ  
+  - [ ] leetcode  
+  - [ ] https://code.mi.com/
 - [ ] java 语法
   - [ ] Think in Java
-- [ ] 多线程
+- [ ] 操作系统
+  - [ ] JVM虚拟机
+- [ ] 多线程并发
 - [ ] Java Web
-- [ ] JVM虚拟机
 - [ ] Spring
   - [ ] Spring Frame Work
   - [ ] Spring Boot
@@ -17,8 +20,13 @@
 - [ ]  Nginx
 - [ ]  Redis
 - [ ]  Redius
-- [ ]  
-
+- [ ]  RPC
+  - [ ]  thrift
+  - [ ]  swift
+- [ ] books
+  - [ ] 刻意练习
+  - [ ] 穷爸爸富爸爸
+  - [ ] 活着
 - [x] This is an example of a todo list item that's complete
 - [x] Todo lists are useful for keeping organised and focused
 - [ ] This one is not completed yet
