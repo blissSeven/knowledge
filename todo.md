@@ -5,6 +5,7 @@
   - [ ] https://code.mi.com/
 - [ ] java 语法
   - [ ] Think in Java
+  - [ ] Java 安全编码标准
 - [ ] 操作系统
   - [ ] JVM虚拟机
 - [ ] 多线程并发

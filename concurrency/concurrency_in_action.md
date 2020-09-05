@@ -459,8 +459,8 @@ while(条件不满足){
     ```
 ### 总结
 java中的管程只有一个条件变量,`synchronized`修饰的代码块在编译期间会自动生相关加锁和解锁的代码    
-## java线程的声明周期
-### 通用线程声明周期
+## java线程的生命周期
+### 通用线程生命周期
 ![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/08/29/17-13-15-4b04a01a989f1b7d114c7fb47e4ff91b-20200829171315-6cb4ac.png)
 * 初始状态
   * 语言层面 线程被创建，不允许分配CPU执行
@@ -537,7 +537,299 @@ java中的管程只有一个条件变量,`synchronized`修饰的代码块在编�
   * 最佳线程=CPU核数×（1+（IO耗时/CPU耗时））
 ### 总结
 压测时，关注CPU、IO利用率和性能指标（响应时间、吞吐量）之间的关系
+## 11  局部变量的线程安全性
+### 方法的调用过程
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/09/05/11-31-27-5f89771fdca420aab336bb8f1984902c-20200905113127-5a9ef9.png)
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/09/05/11-34-47-dc8e0c92a7bed2fc8e21cc335a955e78-20200905113447-bd41a9.png)
+* CPU通过堆栈寄存器（调用栈）获得调用方法的参数和返回地址
+* 每个方法在调用栈里都有自己的独立空间，为栈帧，在栈帧里有对应方法需要的参数和返回地址。当调用方法时，创建栈帧并压入调用栈；方法返回时。对应栈帧会自动弹出。栈帧和方法同生共死。
+### 局部变量
+局部变量放在调用栈里，如果一个变量想跨越方法边界，就必须创建在堆里。
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/09/05/11-38-30-5ccd5e3491cb02d5dab3557a79ce7b3b-20200905113830-f40c42.png)
+### 线程的调用栈
+每个线程有自己独立的调用栈，局部变量保存在线程自己的调用栈的对应方法的栈帧里，不会共享，没有伤害。
+### 线程封闭
+方法内部的局部变量，不会和其他线程共享，没有并发问题。是一种解决并发问题的思路   
+数据库连接池通过线程封闭技术，保证一个Connection一旦被一个线程获取后，在这个线程关闭Connection之前的这段时间，不会再分配给其他线程。  
+## 面向对象思想写并发
+### 封装共享变量
+* 将共享变量作为对象属性封装在内部，对所有公共方法制定并发访问策略。
+* 对于不会发生变化的共享变量final修饰
+```java
+public class Counter{
+    private long value;
+    synchronized long get(){
+        return value;
+    }
+    synchronized long add(){
+        return ++value;
+    }
+}
+```
+#### 识别共享变量之间的约束条件
+共享变量之间的约束条件，基本表现在if语句
+```java
+public class SafeWM{
+    private final AtomicLong upper = new AtomicLong(0);// 上限
+    private final AtomicLong lower = new AtomicLong(0);//下限
 
-
+    void setUpper(long v){//设置上限的时候 判断下
+        if(v < lower.get()){
+            throw new IllegalArgumentException();
+        }
+        upper.set(v);
+    }
     
+    void setLower(long v){//设置下限的时候 判断下
+        if(v > upper.get()){
+            throw new IllegalArgumentException();
+        }
+        lower.set(v);
+    }
+
+}
+```
+#### 制定并发访问策略
+* 避免共享 利用线程本地存储以及为每个任务分配独立的线程
+* 不变模式  Actor模式，CSP模式，函数式编程
+* 管程及其他同步API 
+  * 优先使用成熟的工具类
+  * 低级同步原语
+  * 避免过早优化
+## 14 Lock&Condition 上
+Java通过Lock和Condition接口来实现管程，Lock用于解决互斥问题，Condition用于解决同步问题。
+死锁问题破坏不可抢占条件，synchronized无能为力。   
+不可抢占，其他线程不能强行抢占T1线程的占有资源      --------占用资源的线程进一步申请资源时，申请不到就释放获得的资源
+synchronized申请资源不得时，会进入阻塞状态，没有机会会被唤醒
+* 能够响应中断  进入阻塞状态后，能够响应中断信号,能被中断信号唤醒，有机会释放锁
+* 支持超时 在一段时间内没有获得锁，则返回错误,而不是阻塞
+* 非阻塞的获取锁，获不得锁则直接返回            
+对应API
+* `void lockInterruptibly() throws InterruptedException`支持中断的lock
+* `boolean tryLock(long time,TimeUnit unit) throws InterruptedException;`支持超时的lock
+* `boolean tryLock()` 支持非阻塞获得锁lock
+### Lock 可见性保证
+* lock 常用模板`try finally`
+```java
+class X{
+    private final Lock rt1 = new ReentrantLock();
+    int value;
+    public void addOne(){
+        rtl.lock();
+        try{
+            value += 1;
+        }finally{
+            rtl.unlock();
+        }
+    }
+}
+```
+* ReentrantLock内部有一个volatile的成员变量state，获得锁时，读写state值，解锁时，也会读写state值。
+```java
+class SimpleLock{
+    volatile int state;
+    lock(){
+        //
+        state = 1;
+    }
+    unlock(){
+        //
+        state = 0;
+    }
+}
+```
+X addone的可见性分析
+* 顺序性原则 value+=1 Happens-Before unlock()
+* volatile原则 unlock() Happens-Before 另一个线程lock()
+* 传递性原则 value+=1 Happens-Before 另一个线程的lock()
+### 可重入锁
+一个锁可以锁多遍，线程可以重复获得同一把锁。   
+可重入函数，多个线程可以同时调用的函数,每个线程都能获得正确的结果，同时在一个线程内支持线程切换，无论切换多少次都是正确的。线程安全。
+```java
+class X{
+    private final Lock rt1 = new ReentrantLock();
+    int value;
+    public int get(){
+        rtl.lock();
+        try{
+            return value;
+        }finally{
+            rtl.unlock();
+        }
+    }
+    public void addOne(){
+        rtl.lock();
+        try{
+            value = 1+ get(); //可以多次获得锁，否则阻塞
+        }finally{
+            rtl.unlock();
+        }
+    }
+}
+```
+#### 公平锁、非公平锁
+```
+public ReentrantLock() {
+    sync= new NonfairSync();
+}
+public ReentrantLock(boolean fair){
+    sync = fair ? new FairSync() : new NonfairSync();
+}
+```
+* 公平锁，唤醒的策略就是唤醒等待时间最长的线程
+* 非公平锁，不能保证所有线程都能被唤醒
+#### 锁的最佳实践
+* 永远只在更新对象的成员变量时加锁
+* 永远只在访问可变的成员变量时加锁
+* 永远不在调用其他对象方法时加锁
+### 总结
+lock 有别于synchronized隐式锁
+* 能响应中断
+* 支持超时
+* 非阻塞的获取锁
+```java
+class Account{
+    private int balance;
+    private final Lock lock = new ReentrantLock();
+    void transfer(Account tar, int amt){
+        while(true){
+            if(this.lock.tryLock()){
+                try{
+                        if(tar.this.lock.tryLock()){
+                            try{
+                                this.balance -= amt;
+                                target.balance += amt;
+                            }finally{
+                                tar.lock.unlock();
+                            }//finally
+                        }//tar.lock
+                }//try
+            }// if this.lock 
+        }//while
+    }//transfer
+}
+```
+* while true无法跳转
+* 活锁问题
+```java
+class Account{
+    private int balance;
+    private final Lock lock = new ReentrantLock();
+    void transfer(Account tar, int amt){
+        while(true){
+            if(this.lock.tryLock()){
+                try{
+                        if(tar.this.lock.tryLock()){
+                            try{
+                                this.balance -= amt;
+                                target.balance += amt;
+                                break;// new add 跳出循环
+                            }finally{
+                                tar.lock.unlock();
+                            }//finally
+                        }//tar.lock
+                }//try
+            }// if this.lock 
+            Thread.sleep(随机时间);//避免活锁
+        }//while
+    }//transfer
+}
+```
+## 15 Lock&Conditiont 2
+Condition实现了管程的条件变量,管程只有一个条件变量而Lock&Condition可以有多个
+### 两个条件变量实现阻塞队列
+```java
+     public class BlockedQueue<T>{
+          final Lock lock = new ReentrantLock();
+          final Condition notFull = lock.newCondition(); //不满
+          final Condition notEmpty = lock.newCondition;//不空
+          void enq(T x){
+              lock.lock();
+              try{
+                  while(队列已满)
+                  {
+                           //等待队列不满
+                    notFull.await();
+                  }
+                    //入队操作
+                    //通知可以出对
+                    notEmpty.signal();
+              }finally{
+                lock.unlock();
+              }
+          }
+          void deq(){
+              lock.lock();
+              try{
+                        while(队列已空)
+                        {
+                            notEmpty.await();
+                        }
+                        //出队操作
+                        notFull.signal()；
+              }finally{
+                  lock.unlock();
+              }
+          }
+     }
+```
+Lock&Condition实现的管程里只能使用`await() signal() signalAll()`    
+synchronized管程只能使用`wait notify notifyAll`   
+### 同步异步
+调用方是否需要等待结果--同步，还是立即返回---异步     
+Java默认同步，异步
+* 调用方创建一个子线程，在子线程中执行方法调用，称异步调用
+* 方法实现时，创建一个新线程执行主要逻辑，主线程直接return，这种方法----异步方法
+#### Dubbo源码
+TCP协议层，发送完RPC请求后，线程不会等待RPC的响应结果，而平时大多RPC为同步。存在异步转同步过程。  
+当RPC返回结果之前，阻塞调用线程，让调用线程等待，当RPC结果返回后在唤醒调用线程，让调用线程再次执行。
+```java
+public class DubboInvoker{
+    Result doInvoke(Invocation inv){
+        return currentClient
+                      .request(inv,timeout)
+                      .get();
+    }
+}
+```
+```java
+private final Lock lock = new ReentrantLock();
+private final Condition done = lock.newCondition();
+
+//调用方调用get阻塞
+Object get(int timeout){
+    long start = System.nanoTime();
+    lock.lock();
+    try{
+        while(!isDone()){
+            done.await(timeout);
+            long cur = System.nanoTime();
+            if(isDone() || cur->start > timeout){
+                break;
+            }
+        }
+    }finally{
+        lock.unlock();
+    }
+    if(!isDone())
+        return new TimeoutException();
+    return returnFromResponse(;)
+}
+boolean isDone(){
+    return response != null;
+}
+//RPC结果返回时调用
+private void doReceived(Response res){
+    lock.lock();
+    try{
+        response = res; //先设置response 再通知
+        if(done != null){
+            do.signal(); //尽量用signalAll
+        }
+    }finally{
+        lock.unlock();
+    }
+}
+```
+
 

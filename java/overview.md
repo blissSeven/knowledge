@@ -1,6 +1,9 @@
 # Java Overview
 - [Java Overview](#java-overview)
   - [语法](#语法)
+    - [基础](#基础)
+      - [classpath](#classpath)
+      - [jar](#jar)
     - [变量](#变量)
     - [修饰符](#修饰符)
     - [运算符](#运算符)
@@ -24,14 +27,43 @@
     - [包](#包)
     - [文件](#文件)
   - [异常](#异常)
-    - [反射](#反射)
+  - [反射](#反射)
       - [Class 类](#class-类)
       - [访问字段](#访问字段)
       - [调用方法](#调用方法)
       - [获取继承关系](#获取继承关系)
       - [动态代理](#动态代理)
+  - [注解](#注解)
+    - [使用注解](#使用注解)
+      - [编译器使用的注解](#编译器使用的注解)
+      - [工具处理.class文件使用的注解](#工具处理class文件使用的注解)
+      - [程序运行期能够读取的注解](#程序运行期能够读取的注解)
+    - [定义注解](#定义注解)
+      - [元注解](#元注解)
     - [重写（Override） VS 重载（Overload）](#重写override-vs-重载overload)
 ## 语法  
+### 基础
+#### classpath 
+* classpath 为JVM用到的一个环境变量，指示JVM如何搜索class。
+* 表示一组目录的集合
+  * windows下，;分割，带空格的目录用""括起来
+    * `C:\work\project1\bin;C:\shared;"D:\My Documents\project1\bin"`
+  * linux下，用:分割
+    * `/usr/shared:/usr/local/bin:/home/liaoxuefeng/bin`
+* classpath的设定
+  * 系统环境变量中设置
+  * 启动JVM时设置
+    * `java -classpath .;C:\work\project1\bin;C:\shared abc.xyz.Hello`
+    * -cp 简写`java -cp .;C:\work\project1\bin;C:\shared abc.xyz.Hello`
+    * 没有设置系统环境变量，也没有传入-cp参数，那么JVM默认的classpath为.，即当前目录
+#### jar
+* jar包就是zip包,把后缀从.zip改为.jar
+* jar包里的第一层目录，不能是bin，而应该是hong、ming、mr
+* MANIFEST.MF
+  * 特殊的`/META-INF/MANIFEST.MF`文件
+  * 指定Main-Class和其它jar包的信息
+  * JVM会自动读取这个MANIFEST.MF文件，如果存在Main-Class，我们就不必在命令行指定启动的类名
+    * `java -jar hello.jar`
 ### 变量
 *  $a 合法标识符
 * java 数据类型  
@@ -612,6 +644,7 @@ java.math.BigInteger就是用来表示任意大小的整数。BigInteger内部�
         }
         scanner.close();
     ``` 
+
 ## 异常     
   ![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/08/14/17-34-35-a6c7405ad2c619a15bc380a6d9a4f855-20200814173435-16e88c.png)
   * 必须捕获的异常Exception 及其子类，但不包括RuntimeException及其子类，---检查性异常 不处理编译不通过
@@ -664,7 +697,7 @@ java.math.BigInteger就是用来表示任意大小的整数。BigInteger内部�
         logger.severe("process will be terminated...");
     ```
    * SLF4J+Logback
-### 反射
+## 反射
 反射--程序在运行期间可以拿到一个对象的所有信息，解决在运行期间，对某个实例一无所知的情况下，如何调用其方法
 #### Class 类
 * class 本质是数据类型，没有继承关系的数据类型无法相互赋值
@@ -899,7 +932,7 @@ java.math.BigInteger就是用来表示任意大小的整数。BigInteger内部�
          // interface java.lang.constant.ConstantDesc
       ```
 #### 动态代理
-* 一般接口均 向上转型并指向某个实例，动态代理可以在运行期间动态创建interface实例
+* 一般接口类型变量均 向上转型并指向某个实例，动态代理可以在运行期间动态创建interface实例，不编写实现类，直接在运行期间创建某个interface实例
   * 定义InvocationHandler实例，负责接口的方法调用
   * 通过Proxy.newProxyInstance()创建interface实例 
     * 参数 ClassLoader 接口类
@@ -923,13 +956,75 @@ java.math.BigInteger就是用来表示任意大小的整数。BigInteger内部�
                     }
                 };
                 Hello hello = (Hello) Proxy.newProxyInstance(
-                        Hello.class.getClassLoader(),
-                        new Class[]{ Hello.class },
-                        handler);
+                        Hello.class.getClassLoader(),//传入classloader
+                        new Class[]{ Hello.class },//传入要实现的接口
+                        handler);//传入处理调用方法的InvocationHandler
                 hello.morning("Bob");
             }
         }
      ```
+## 注解
+用作标注的元数据，会被编译器打包进入class文件
+### 使用注解
+#### 编译器使用的注解
+* **@Override** 检查该方法是否实现了正确覆写
+* **@SuppressWarnings** 告诉编译器忽略此处警告
+#### 工具处理.class文件使用的注解
+#### 程序运行期能够读取的注解
+* 加载后一直存在于JVM中
+* 可以配置参数，没有指定配置的参数默认值
+* 如果注解参数名称value，且只有一个参数，可以忽略参数名称
+    ```java
+    public class Hello{
+      @Check(min=0,max=100,value=55)
+      public int n;
+      @Check(value=99)
+      public int p;
+      @Check(99) //==@Check(value=99)
+      public int x;
+      @Check 
+      public int y;
+    }
+    ```
+### 定义注解
+使用`@interface`定义注解
+  ```java
+  public @interface Report{
+    int type() default 0;
+    String level() default "info";
+    String value() default "";
+  }
+  ```
+#### 元注解
+可以修饰注解的注解为元注解，一般只需要使用元注解，不需要定义
+* @Target
+  * 定义注解能够应用于源码的哪些位置
+    * 类/接口 ElementType.Type
+    * 字段 ElementType.FIELD
+    * 方法 ElementType.METHOD
+    * 构造方法 ElementType.CONSTRUCTOR
+    * 方法参数 ElementType.PARAMETER    
+    * @Target定义的value为一个ElementType[]数组
+  * ```JAVA 
+          @Target(ElementType.METHOD)//定义注解@Report 可以用在方法上
+          public @interface Report{
+          }
+          @Target({                          //定义注解@Report 可以用在方法上或字段上
+            ElementType.METHOD,
+            ElementType.FIELD
+        })
+        public @interface Report {
+        }
+     ```
+* @Retention 定义注解的生命周期
+  * 仅编译器 RetentionPolicy.SOURCE
+  * 仅class文件RetentionPolicy.CLASS
+  * 运行期     RetentionPolicy.RUNTIME
+  * 如果Retention 不存在，默认为RetentionPolicy.CLASS，而我们通常定义的注解都在运行期，所以一定加上@Retention(RetentionPolicy.RUNTIME)
+      ```java 
+      @Retention(RetentionPolicy.RUNTIME)
+      
+      ```
 ### 重写（Override） VS 重载（Overload）
   * Override
     * 重写方法不能抛出新的异常或者比被重写方法方法更加宽泛的异常
