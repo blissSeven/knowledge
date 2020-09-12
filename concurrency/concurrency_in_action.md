@@ -831,5 +831,199 @@ private void doReceived(Response res){
     }
 }
 ```
+# 16 semaphore 实现一个限流器
+## 信号量模型   
+一个计数器、一个等待队列、三个原子操作的方法。
+* init 设置计数器的初始值
+* down()计数器值减1，如果此时计时器值小于0，当前线程T1阻塞，否则当前线程T1可以继续执行----P操作---对应acquire()
+* up()计数器值加1，如果此时计数器值<=0，则唤醒等待队列中的一个线程T2，并将T2从等待队列中移除-----V操作---对应release()
+```java
+class Semaphore{
+    int count;
+    Queue queue;
+    Semaphore(int c){
+        this.count = c;
+    }
+    void down(){
+        this.count --;
+        if(this.count <0){
+            //将当前线程插入到等待队列
+            //阻塞当前线程
+        }
+    }
+    void up(){
+        this.count++;
+        if(this.count <=0){
+            //移除等待队列中的某个线程T
+            //唤醒线程T
+        }
+    }
+}
+```
+## 信号量的使用
+进入临界去前down,出来临界区up()
+```java
+static int count;
+static final Semaphore s = new Semaphore(1);
+static void addOne(){
+    s.acquire();
+    try{
+        count += 1;
+    }finally{
+        s.release();
+    }
+}
+```
+两个线程T1，T2同时并发addOne()由于acquire的原子性，T1将s减1为0，之后T2将s减1为-1；对于T1，信号量里面的计数器值为0，大于等于0，T1会继续执行，T2,信号量里面的计数器值为-1，阻塞当前线程并将T2加入到阻塞队列。T1 release之后，s=0，小于等于0，等待队列中的T2会被唤醒。T2在T1执行完临界区的代码后才进入临界区，从而保证了互斥。
+## 限流器
+Seｍaphore允许多个线程访问同一个临界区   
+限流器--不允许多于N个的线程同时进入临界区   
+对象池---一次性创建N个对象，之后所有的线程重复利用这N个对象，对象在被释放前，不允许被其他线程使用
+```java
+class ObjPool<T, R>{
+    final List<T> pool;
+    final Semaphore sem;
+    ObjPool(int size, T t){
+        pool = new Vector<T>(){};
+        for( int i = 0 ; i < size; i++){
+            pool.add(t);
+        }
+        sem = new Semaphore(size);
+    }
+    //利用线程池中对象，调用func
+    R exec(Function<T, R> func){
+        T t = null;
+        sem.acquire();
+        try{
+            t = pool.remove(0);
+            return func.apply(t);
+        }finally{
+            pool.add(t);
+            sem.release();
+        }
+    }
+}
+ObjPool<Long, String> pool = new ObjPool<Long, String>(10,2);
+pool.exec(t -> {
+    System.out.println(t);
+    return t.toString();
+})
+```
+如果把vector换成Arraylist（非线程安全），那么临界区内的多个remove和多个add操作不能保证线程安全。
+## 17 readwritelock 实现完备的缓存
+缓存提升性能的条件---缓存的数据一定读多写少。    
+### 读写锁
+* 允许多个线程同时读共享变量
+* 只允许一个线程写共享变量
+* 如果一个线程正在写，那么禁止读线程读共享变量。
+* 
+### 缓存实现
+```java
+class Cache<K, V>{
+    final Map<K, V> m = new HashMap<>();
+    final ReadWriteLock rwl = new ReentrantLock();
+    final Lock r = rwl.readLock();
+    final Lock w = rwl.writeLock();
+    V get(K key){
+        r.lock();
+        try{
+            return m.get(key);
+        }finally{
+            r.unlock();
+        }
+    }
+    V put(String key, Data v){
+        w.lock();
+        try{
+            return m.put(key, v);
+        }finally{
+            w.unlock();
+        }
+    }
+}
+```
+缓存首先要解决的是缓存数据的初始化问题，可以使用一次性加载或者按需加载方式。   
+* 如果数据量不大，那么可以采用一次性加载方式
+* 否则，当应用查询缓存，并且数据不在缓存时，才触发加载源头相关数据进缓存的操作。
+### 实现缓存的按需加载
+```java
+class Cache<K, V>{
+    final Map<K, V> m = new HashMap<>();
+    final ReadWriteLock rwl = new ReentrantLock();
+    final Lock r = rwl.readLock();
+    final Lock w = rwl.writeLock();
+
+    V get(K key){
+        V v = null;
+        r.lock();
+        try{
+            v = m.get(key);
+        }finally{
+            r.unlock();
+        }
+        if( v != null){
+            return v;
+        }
+        w.lock();////@5
+        try{
+            //再次验证， 其他线程可能已经查询过数据库
+            v = m.get(key);
+            if(v == null){
+                //查询数据库
+                //v=???;
+                m.put(key, v);
+            }
+        }finally{
+            w.unlock();
+        }
+        return v;
+    }
+}
+```
+在未查询到v时，在查询数据库之前需要二次验证。
+假设3个线程同时执行，开始缓存为空，那么T1 T2 T3同时调用get()方法，同时执行到@5处，只有T1获得锁，T2 T3进入到等待队列中。T1查询过后，写入缓存。T2 T3再次获得锁后需要再次验证一下～
+### 读写锁的升级与降级
+```java
+r.lock()
+try{
+    v = m.get(key);
+    if(v == null){
+        w.lock();
+        try{
+
+        }finally{
+            w.unlock();
+        }
+    }
+}finally{
+    r.unlock();
+}
+```
+这种在读锁的lock和unlock期间，又存在写锁的lock和unlock的情况，为读锁升级为写锁。ReadWriteLock不支持这种升级，支持锁的降级。
+```java
+r.lock();
+if(!cacheValid){
+    r.unlock();
+    w.lock();
+    try{
+        if(!cacheValid){   
+        }
+        r.lock();//释放写锁前，降级为读锁
+    }finally{
+        w.unlock();
+    }
+}
+try{
+    use(data);//此处仍持有读锁
+}finally{
+    r.unlock();
+}
+```
+### 总结
+* 只有写锁支持条件变量
+* 读写锁也支持`tryLock() lockInterruptibly()`等方法
+* 缓存同步问题：保证缓存数据和源头数据的一致性
+  * 超时机制，超过一定时间，访问缓存中的数据触发重新从源头加载进缓存。
+
 
 
