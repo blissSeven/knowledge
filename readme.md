@@ -12,7 +12,19 @@
 * 跳转后调回  alt+shift+左键
 * 继续前进  alt+shift+右键
 * 一个方法一个方法的跳转 alt+上下键
+## Ubuntu
+* 切换工作区 ctrl+alt+↑↓键
+* 将当前窗口移动到工作区ctrl+alt+shift+↑↓键
+* 显示应用程序菜单 super+a
+* 在运行的应用程序间切换 super+tab
+* 通知栏 super+m
+* 切换输入法 super+空格
+* 运行控制台，快速运行命令 alt+F2
 
+## java 
+* jar -xvf xxx.jar 默认解压到当前目录
+* jar cvf hello.jar hello  打包为jar
+* jar uvf 123.jar ./lib 将lib文件添加到jar中
 👋 Welcome to your new Foam Workspace!>
 
 ## Getting started

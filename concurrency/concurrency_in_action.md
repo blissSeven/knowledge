@@ -37,7 +37,7 @@ public class Task{
 ### 1.2 线程切换导致的原子性问题
 count+=1   
 * 把变量count从内存加载到CPU寄存器
-* 在寄存器进行+1操作
+* 在寄存器进行+1操作  
 * 将结果写入内存(也有可能写入缓存)   
 任务切换发生在任何一条CPU执行执行完毕。
 ![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/08/18/20-54-16-1daa9da1f448d8f5702f668fb212f5db-20200818205416-eda2c4.png)
@@ -831,8 +831,8 @@ private void doReceived(Response res){
     }
 }
 ```
-# 16 semaphore 实现一个限流器
-## 信号量模型   
+## 16 semaphore 实现一个限流器
+### 信号量模型   
 一个计数器、一个等待队列、三个原子操作的方法。
 * init 设置计数器的初始值
 * down()计数器值减1，如果此时计时器值小于0，当前线程T1阻塞，否则当前线程T1可以继续执行----P操作---对应acquire()
@@ -860,7 +860,7 @@ class Semaphore{
     }
 }
 ```
-## 信号量的使用
+### 信号量的使用
 进入临界去前down,出来临界区up()
 ```java
 static int count;
@@ -875,7 +875,7 @@ static void addOne(){
 }
 ```
 两个线程T1，T2同时并发addOne()由于acquire的原子性，T1将s减1为0，之后T2将s减1为-1；对于T1，信号量里面的计数器值为0，大于等于0，T1会继续执行，T2,信号量里面的计数器值为-1，阻塞当前线程并将T2加入到阻塞队列。T1 release之后，s=0，小于等于0，等待队列中的T2会被唤醒。T2在T1执行完临界区的代码后才进入临界区，从而保证了互斥。
-## 限流器
+### 限流器
 Seｍaphore允许多个线程访问同一个临界区   
 限流器--不允许多于N个的线程同时进入临界区   
 对象池---一次性创建N个对象，之后所有的线程重复利用这N个对象，对象在被释放前，不允许被其他线程使用
@@ -1024,6 +1024,166 @@ try{
 * 读写锁也支持`tryLock() lockInterruptibly()`等方法
 * 缓存同步问题：保证缓存数据和源头数据的一致性
   * 超时机制，超过一定时间，访问缓存中的数据触发重新从源头加载进缓存。
+## 18 StampedLock 乐观、悲观锁
+在读多写少的环境中，比读写锁更快。相较于读写锁的读锁和写锁，StampedLock有写锁、悲观读、乐观读三种模式。 写锁和悲观读类似写锁和读锁，但是StampedLock中写锁和悲观读锁加锁成功后返回stamp对象，解锁时需要传入该参数。
+```java
+final StampedLock s1 = new StampedLock();
+long stamp = s1.readLock();
+try{
 
+}finally{
+    s1.unlockRead(stamp);
+}
+try{
 
+}finally{
+    s1.unlockWrite(stamp);
+}
+``` 
+同时乐观读方式允许多个线程读的同时，仅一个线程获取写锁。如果在乐观读操作期间，存在写操作，把乐观读升级为悲观读，之后再次读取共享变量。
+```java
+class Point{
+    private int x, y;
+    final StampedLock s1 = new StampedLock();
+    int distanceFromOrigin() {
+        long stamp = s1.tryOptimisticRead();
+        int curx =x, cury = y;
+        if(!s1.validate(stamp)){//判断是否存在写操作
+            stamp = s1.readLock();//升级为悲观读
+            try{
+                curx =x ;
+                cury = y;
+            }finally{
+                s1.unlockRead(stamp);//释放悲观读锁
+            }
+        }
+        return Math.sqrt(curx * curx + cury*cury);
+    }
+}
+```
+### 注意事项
+* StampedLock 为readwritelock的子集
+* 不支持重入
+* 悲观读锁，写锁不支持条件变量
+* 如果线程阻塞在StampedLock的readLock()或者writeLock()上时，如果调用阻塞线程的interrupt方法，导致CPU飙升,如果需要支持中断，使用可中断的readLockInterruptibly和writeLockInterruptibly
+### 总结 模板
+```java
+final StampedLock s1 = new StampedLock();
+long stamp = s1.tryOptimisticRead();
 
+if(!s1.validate(stamp)){
+    stamp = s1.readLock();//升级为悲观锁
+    try{
+
+    }finally{
+        s1.unlockRead(stamp);
+    }
+}
+```
+```java
+long stamp = s1.writeLock();
+try{
+
+}finally{
+    s1.unlockWrite(stamp);
+}
+```
+## 19 CountDownLatch 和CyclicBarrier 线程步调一致
+### 背景
+```java
+while(存在未对账订单){
+    pos = getPOrder();
+    dos = getDOrders();
+    diff = check(pos, dos);
+    save(diff);
+}
+```
+### 多线程
+```java
+while(存在未对账订单){
+    Thread t1 = new Thread(()->{
+        pos = getPOrder();
+    });
+    t1.start();
+    Thread t2 = new Thread(()->{
+        dos = getDOrder();
+    });
+}
+t2.start();
+t1.join();
+t2.join();
+//........
+```
+### 线程池 配合CountDownLatch
+省去创建线程所需的时间，CountDownLatch解决多个线程间的等待
+```java
+Executor executor = Executors.newFixedThreadPool(2);
+while(存在未对账订单){
+    CountDownLatch latch = new CountDownLatch(2);// 表示需要等待两个线程
+    executor.execute(()->{
+        pos = getPOrder();
+        latch.countDown();
+    });
+    executor.execute(()->{
+        dos = getDOrder();
+        latch.countDown();
+    });
+    latch.await();//等待两个查询结束
+    //...................
+}
+```
+### 生产者消费者
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/09/19/15-07-13-9c2869be72f32eeb17cb08bc87b7ae55-20200919150713-80f598.png)   
+一个线程T1执行订单的查询，一个T2执行派送单的查询，当线程T1T2各自生产完成一条数据时，通知线程T3执行对账操作   
+* T1 T2 步调一致
+* 结束后能够通知到T3
+* 计数器初始化2，T1、T2结束后减1，计数器大于0则线程T1、T2等待。如果计数器为0，则通知线程T3，并唤醒等待的线程T1、T2。同时将计数器重置2.
+```java
+Vector<P> pos;
+Vector<D> dos;
+Executor executor = Executors.newFixedThreadPool(1);
+final CyclicBarrier barrier = new CyclicBarrier(2, ()->{
+    executor.execute(()->check());
+});
+void check(){
+    P p = pos.remove(0);
+    D d = dos.remove(0);
+    //...........
+}
+void checkAll(){
+    Thread t1 = new Thread(()->{
+        while(存在未对账订单){
+            pos.add(getPOrders());
+            //等待
+            barrier.await();
+        }
+    });
+    t1.start();
+
+    Thread t2 = new Thread(()->{
+        while(存在未对账订单){
+            dos.add(getDOrders());
+            //等待
+            barrier.await();
+        }
+    });
+    t2.start();
+}
+```
+### 总结
+* CountDownLatch 解决一个线程等待多个线程场景，且计数器不能循环利用，一旦计数器为0，再有线程调用`await`，直接通过
+* CyclicBarrier 一组线程之间的等待，计数器可循环利用。
+* CyclicBarrier 是在同步调用回调函数后才唤醒等待的线程，如果在回调函数直接执行check()，在执行check时，不能同时执行getPOrder和getDOrder，性能未提升。
+* CyclicBarrier 执行回调函数的是将CyclicBarrier减到0的那个线程。
+* 看到回调函数时，想想执行回调函数的是哪个？
+
+#!/bin/bash
+
+base_dir=`dirname $0`
+base_dir= /home/work/wangpeng1/scripts/
+
+CLASSPATH=$base_dir/../classes:$base_dir/../lib/xiaomi-thrift-sns-0.0.21.jar:$base_dir/../lib/*
+MAIN_CLASS=com.xiaomi.xiaoqiang.task.dailyStat.StatDataImport
+
+kinit -k -t /etc/conf/xiaoqiang/h_xiaoqiang.keytab h_xiaoqiang@XIAOMI.HADOOP
+/opt/soft/jdk1.8.0_25/bin/java -Xms4096m -Xmx4096m -XX:MaxPermSize=1024m -XX:OnOutOfMemoryError="kill -9 %p" -classpath $CLASSPATH "$MAIN_CLASS" $@
