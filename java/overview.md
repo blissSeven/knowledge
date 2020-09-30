@@ -40,6 +40,39 @@
       - [程序运行期能够读取的注解](#程序运行期能够读取的注解)
     - [定义注解](#定义注解)
       - [元注解](#元注解)
+      - [总结](#总结)
+    - [处理注解](#处理注解)
+      - [提供的使用反射API读取Annotation的方法](#提供的使用反射api读取annotation的方法)
+      - [注解使用](#注解使用)
+  - [泛型](#泛型)
+    - [泛型使用](#泛型使用)
+    - [泛型编写](#泛型编写)
+    - [擦拭法](#擦拭法)
+      - [局限性](#局限性)
+      - [不恰当的覆写](#不恰当的覆写)
+      - [泛型继承](#泛型继承)
+    - [extends 通配符](#extends-通配符)
+      - [extends 用于get方法](#extends-用于get方法)
+      - [extends 用于set方法](#extends-用于set方法)
+      - [extends 使用](#extends-使用)
+      - [extends限定T类型](#extends限定t类型)
+      - [总结](#总结-1)
+    - [super通配符](#super通配符)
+      - [extends VS super](#extends-vs-super)
+      - [PECS原则](#pecs原则)
+      - [无限定通配符](#无限定通配符)
+    - [泛型和反射](#泛型和反射)
+      - [部分反射的API也是泛型](#部分反射的api也是泛型)
+      - [泛型数组](#泛型数组)
+  - [集合](#集合)
+    - [List](#list)
+      - [创建](#创建)
+      - [遍历](#遍历)
+      - [同Array互转](#同array互转)
+    - [equals方法](#equals方法)
+    - [Map](#map)
+      - [遍历Map](#遍历map)
+    - [equals 和hashcode](#equals-和hashcode)
     - [重写（Override） VS 重载（Overload）](#重写override-vs-重载overload)
 ## 语法  
 ### 基础
@@ -987,7 +1020,7 @@ java.math.BigInteger就是用来表示任意大小的整数。BigInteger内部�
     }
     ```
 ### 定义注解
-使用`@interface`定义注解
+使用`@interface`定义注解，注解的参数类似无参数方法，可通过default设定一个默认值
   ```java
   public @interface Report{
     int type() default 0;
@@ -1023,8 +1056,490 @@ java.math.BigInteger就是用来表示任意大小的整数。BigInteger内部�
   * 如果Retention 不存在，默认为RetentionPolicy.CLASS，而我们通常定义的注解都在运行期，所以一定加上@Retention(RetentionPolicy.RUNTIME)
       ```java 
       @Retention(RetentionPolicy.RUNTIME)
-      
       ```
+* @Repeatable 定义Annotation是否可以重复
+* ```java
+   @Repeatable(Report.class)
+   @Target(ElementType.Type)
+   public @interface Report{
+     int type() default 0;
+     String level() default "info";
+     String value() default "";
+   }
+   @Target(ElementType)
+   public @interface Reports{
+     Report [] value;
+   }
+  ```
+* ```java
+    @Report(type = 1, level = "debug")
+    @Report(type = 2, level = "warning")  //经过@Repeatable修饰，可以添加多个@Report注解
+    public class Hello{}
+    ```
+* @Inherited 定义子类是否可以继承父类定义的Annotation, 仅针对@Target(ElementType.Type)类型的Annotation有效，且仅针对class的继承，interface继承无效
+```java
+@Inherited
+@Target(ElementType.Type)
+public @interface Report{
+  int type() defualt 0;
+}
+
+@Report(type=1)
+public class Person{
+}
+public class Student extends Person{
+}
+``` 
+#### 总结
+* @interface 定义注解
+* 添加默认值
+* 用元注解配置注解
+```java
+@Target(ElementType.Type)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Report{
+  int type() default 0;
+}
+```        
+* 必须设置@Target 和 @Retention(一般runtime)
+###  处理注解
+* SOURCE注解在编译器丢掉，由编译器使用，我们仅使用
+* CLASS注解保存在class文件中，不会被加载进JVM，底层工具库使用，涉及class加载，很少用
+* RUNTIME加载进JVM，可以在运行期间读取，经常使用+编写    
+**注解也是class，继承`java.lang.annotation.Annotation`，读取注解时，使用反射API**   
+#### 提供的使用反射API读取Annotation的方法  
+判断某个注解是否存在于Class,Field,Method,Constructor中
+* `Class.isAnnotationPresent(Class)` `Person.class.isAnnotationPresent(Report.class)`判断@Report是否存在Person类中
+ * `Field.isAnnotationPresent(Class)`
+ * ``Method.isAnnotationPresent(Class)``
+* `Constructor.isAnnotationPresent(Class)`     
+反射API读取Annotation
+* Class.getAnnotation(Class)
+* Field.getAnnotation(Class)
+* Method.getAnnotation(Class)
+* Constructor.getAnnotation(Class) 
+```java
+//两种方式读取annotation
+Class cls = Person.class;
+if(cls.isAnnotationPresent(Report.class)){ //判断是否存在再获取
+  Report report = cls.getAnnotation(Report.class);
+}
+Report report = cls.getAnnotation(Report.class);//获取，再判断是否是null
+if(report != null){
+}
+```
+读取方法、字段、构造方法annotation和class类似。唯独方法参数的annotation，方法参数本身看做一个数组，同时每个参数可以定义多个注解。一次获取方法参数的所有注解用二维数组
+```java
+public void hello(@NotNull @Range(max=5) String name, @NotNull String prefix){
+  //先获取method实例
+  Method m =...
+  Annotation[][] annos = m.getParameterAnnotations();
+  //第一个参数所有的annotation
+  Annotation[] ann =annos[0];
+  for(Annotation anno : ann){
+    if(anno instanceof Range){
+      Range r = (Range)anno;
+    }
+  }
+}
+```
+#### 注解使用
+由程序决定，注解本身对逻辑没有影响  
+```java
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.FIELD)
+public @interface Range {
+    int min() default 0;
+    int max() default 255;
+} 
+public class Person {
+    @Range(min=1, max=20)
+    public String name;
+
+    @Range(max=10)
+    public String city;
+}
+//自己定义方法去检测参数
+void check(Person person) throws IllegalArgumentException, ReflectiveOperationException {
+    // 遍历所有Field:
+    for (Field field : person.getClass().getFields()) {
+        // 获取Field定义的@Range:
+        Range range = field.getAnnotation(Range.class);
+        // 如果@Range存在:
+        if (range != null) {
+            // 获取Field的值:
+            Object value = field.get(person);
+            // 如果值是String:
+            if (value instanceof String) {
+                String s = (String) value;
+                // 判断值是否满足@Range的min/max:
+                if (s.length() < range.min() || s.length() > range.max()) {
+                    throw new IllegalArgumentException("Invalid field: " + field.getName());
+                }
+            }
+        }
+    }
+}
+```
+## 泛型
+ArrayList<Integer> 可以向上转型为 List<Integer>  
+ArrayList<Integer> 不可以向上转型为 List<Number>  
+### 泛型使用
+```java
+ArrayList<String> array = new ArrayList<>();
+
+public interface Comparable<T>{
+  int compareTo(T o);
+}
+class Person implements Comparable<Person>{
+  public int compareTo(Person other){
+    return this.name.compareTo(other.name);
+  }
+}
+```
+### 泛型编写
+泛型类型`<T>`不能用于静态方法，必须定义其他类型`<K>`将静态方法的泛型类型和实例类型的泛型类型区分开
+```java
+public class Pair<T>{
+  public T getFirst(){}
+  //静态泛型方法应该使用其他类型区分
+  public static <K> Pair<K> create(K first, K second){
+  }
+}
+```
+多种类型的泛型
+```java
+public class Pair<K, V>{
+
+}
+```
+### 擦拭法
+虚拟机对泛型一无所知，编译器做工作。编译器把`<T>`视为Object，并根据`<T>`实现安全的强制转型。java的泛型是由编译器在编译时运行的，编译器内部将所有类型T视为Object，同时在需要转型时，根据T类型做强制类型转换。
+```java
+//编辑的代码
+public class Pair<T>{
+  private T first;
+  private T second;
+}
+//jvm虚拟机运行的代码 将所有泛型替换为Object
+public class Pair{
+  private Object first;
+  private Object second;
+}
+```
+#### 局限性
+* `<T>`不能是基本类型，因为实际类型为Object，Object无法持有基本类型
+* 无法取得泛型的Class
+   ```java
+   Pair<Sintr> p1 = new Pair<>("1", "2");
+   Pair<Integer> p2 = new Integer<>(1, 2);
+   Class c1 = p1.getClass();
+   Class c2 = p2.getClass();
+   assert(c1 == c2); //true
+   assert(c1 == Pair.Class);//true
+   ```
+* 无法判断带泛型的类型
+   ```java
+   Pair<Integer> p = new Pair<>(1, 2);
+   if(p instanceof Pair<String>){
+     //并不存在Pair<Sintr>.class 只有Pair.class
+   }
+   ```
+* 不能实例化T
+   ```java
+   public class Pair<T>{
+     private T first;
+     private T second;
+     public Pair(){
+       fist = new T(); // !!!! error
+       second = new T();
+     }
+   }
+   public class Pair<T>{
+     private T first;
+     private T second;
+     public Pair(Class<T> clazz){//实例化T类型时，借助Class<T>参数
+       first = clazz.newInstance();
+       second = clazz.newInstance();
+     }
+   }
+   ```
+#### 不恰当的覆写
+定义的`equals(T t)`被擦拭为`equals(Object t)`，这个方法继承自object，编译器阻止一个实际上会被转为覆写的泛型方法，可重命名实现
+```java
+public class Pair<T>{
+  public boolean equals (T t){
+    return this == t;
+  }
+}
+```   
+#### 泛型继承
+无法获取Pair<T>的类型T
+```java
+public class IntPair extends Pair<Integer>{
+
+}
+IntPair p =new IntPair(1, 2);//继承了泛型的子类，可以直接使用没有泛型参数
+```
+在继承了泛型类型时，子类可以获取父类的泛型类型，否则编译器就无法得知子类要存储的类型T
+```java
+Class<IntPair> clazz = IntPair.class;
+Type t = clazz.getGenericSuperclass();
+if(t instanceof ParameterizedType){
+  ParameterizedType pt = (ParameterizedType)t;
+  Type[] types = pt.getActualTypeArguments();//可能有多个泛型类型
+  Type firstType = types[0];
+  Class<?> typeClass = (Class<?>)firstType;
+  System.out.println(typeClass);//class java.lang.Integer
+}
+```
+java实际的类型体系
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/09/30/14-41-37-74db0b680ef31682111548baedbd34b3-20200930144137-5f2e1d.png)
+### extends 通配符
+Pair<Integer> 不是Pair<Number>的子类，无法强制类型转换
+```java
+public class PairHelper{
+  static int add(Pair<Number> p){
+    Number first = p.getFirst();
+    Number second = p.getSecond();
+   return first.intValue() + second.intValue();
+  }
+}
+
+int sum =PairHelper.add(new Pair<Number>(1, 2));// OK
+int sum2 = PairHelper.add(new Pair<Integer>)(1, 2);//fail error: incompatible types: Pair<Integer> cannot be converted to Pair<Number>
+```
+`<? extends Number>` 上界通配符
+```java
+public class PairHelper{
+  static int add(Pair< ? extends Number> p){
+    Number first = p.getFirst();
+    Number second = p.getSecond();
+   return first.intValue() + second.intValue();
+  }
+}
+//可以传参数 Pair<Integer> Pair<Double> 等 T为Number的子类
+```
+#### extends 用于get方法
+对`Pair<? extends Number>`调用`getfirst`方法，方法实际签名为`<? extends Number> getFirst()`，返回值为Number的子类
+```java
+Numbe x = p.getFirst();
+Integer y = p .getFirst();//error? 无法确定具体类型，只能确保是Number的子类型
+```
+#### extends 用于set方法
+```java
+static int add(Pair<? extends Number> p) {
+        Number first = p.getFirst();
+        Number last = p.getLast();
+        p.setFirst(new Integer(first.intValue() + 100));
+        p.setLast(new Integer(last.intValue() + 100));
+        return p.getFirst().intValue() + p.getFirst().intValue();
+    }
+
+    Number first = p.getFirst();
+        Number last = p.getLast();
+        p.setFirst(new Integer(first.intValue() + 100)); // incompatible types: Integer cannot be converted to CAP#1
+        //擦拭法，当p为Pair<Double>时，显然Pair<Double>的 setfirst不能接受Integer类型
+```
+**方法参数签名setFirst(? extends Number)无法传递任何Number的子类给setFirst(? extends Number)**,除了可以setFirst(null)
+#### extends 使用
+```java
+int sumOfList(List<? extends Integer> list){
+
+}
+```
+List<? extends Integer>表明该方法内部只会读取List元素，不会修改List元素，是一个对参数List<? extends Integer>只读的方法
+#### extends限定T类型
+定义泛型类型时，通过extends限定T类型
+```java
+public class Pair<T extends Number>{}
+```
+#### 总结
+* extends 作为方法参数时，可读不可写
+* extends作为泛型类时，限定泛型类型为T及其T的子类
+### super通配符
+`<? super Integer>`表示
+* 允许调用set(? super Integer)方法传入Integer的引用
+* 不允许调用get方法获得Integer的引用
+* 可写不可读
+#### extends VS super
+* `<? extends T>`允许调用读方法`T get()`获取T的引用，但不允许调用写方法`set(T)`传入T的引用（传入null除外）
+* ` <? super T>`允许调用方法`set(T)`传入T的引用，不允许调用`T get()`获取T的引用
+ ```java
+ public class Collections{
+   public static <T> void copy(List<? super T> dest, List<? extends T> src){
+     //将src中元素复制到dest中，编译器检查 是否满足对super的只写，extends的只读
+   }
+ }
+ ```
+ #### PECS原则
+ **Producer Extends Consumer Super**
+#### 无限定通配符
+```java
+void sample(Pair<?> p){
+
+}
+static boolean isNull(Pair<?> p){
+  return p.getFirst() ==null;
+}
+```
+没有extends 同时也没有super
+* 不允许调用set(T)并传入引用(null除外)
+* 不允许调用T get()并获取T引用(只能获取Object引用)
+* Pair<?> 为所有Pair<T>的超类，可以用Pair<T>替换，只能做null判断
+### 泛型和反射
+#### 部分反射的API也是泛型
+* `Class<T>`
+  ```java
+  Class<String> clazz = String.class;
+  ```
+* `Constructor<T>`
+   ```java
+   Class<Integer> clazz = Integer.class;
+   Constructor<Integer> cons = clazz.getConstructor(int.class);
+   Integer i = cons.newInstance(0);
+   ```
+#### 泛型数组
+* 可以声明带泛型的数组，不能new创建
+   ```java
+   Pair<String>[] ps = null;//ok
+   Pair<String>[] ps = new Pair<String>[2];//fail
+   ```  
+* 通过强制类型转换实现带泛型的数组
+   ```java
+   Pair<String>[] ps = (Pair<String>[])new Pair[2];
+   Pair<String>[] ps2 = (Pair<String>[])Array.newInstance(String.class, 2);
+   ```   
+* 泛型数组的使用
+  ```java
+  Pair[] arr = new Pair[2];
+  Pair<String>[] ps = (Pair<String>[])arr;
+  arr[0] = new Pair<Integer>(1, 2);
+  Pair<String> p = ps[0];// cast error
+  //安全使用时，扔掉arr的引用  
+  Pair<String>[] ps = (Pair<String>[])new Pair[2];   
+  ps.getClass() == Pair[].class//true
+  ```
+  ```java
+  T[] createArray(Class<T> cls){
+    return (T[])Array.newInstance(cls, 5);
+  }
+  //通过可变参数创建泛型数组
+  public class ArrayHelper{
+  static <T> T[] asArray(T.. objs){
+    return obj;
+  }
+  }
+  ```
+  **如果在方法内创建了泛型数组，最好不要将它返回给外部使用**
+## 集合
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/09/30/17-00-33-588f01d3493434f9be35a2e916f305a6-20200930170033-47bd3e.png)
+集合接口和实现分离，支持泛型，分为Collection和Map，细分为
+* List 
+* Set
+* Map 
+遗留的集合类，不应继续使用
+* Hashtable 线程安全的Map实现
+* Vector 线程安全的List实现
+* Stack 基于Vector实现的LIFO栈
+* Enumeration<E> 被Iterator<E>取代
+### List
+|-----|    ArrayList|LinkedList|
+|:----------------:|:-----------:|:-------------:|
+|获取指定元素|快|从头开始查找|
+| 添加元素到末尾   |         快      |               快               |
+|指定位置添加、删除|需要移动元素|不需要移动|
+|   内存占有   |    少    |   多    |
+#### 创建
+* `List<Integer> list = new ArrayList<>()`
+* `List<Integer> list = new LinkedList<>()`
+* `List<Integer> list = List.of(1,2,3)`//不能null
+#### 遍历
+* Iterator
+   ```java
+   Iterator<String> it = list.iterator();
+   while(it.hasNext(){
+     System.out.println(it.Next());
+   }
+   ```
+* for each
+   ```java
+   for(String str : list){
+     System.out.println(str);
+   }
+   ```
+#### 同Array互转
+* `Object[] array = list.toArray()`//返回Object[]
+* `Integer[] array = list.toArray(new Integer[3])`//
+  ```java
+  List<Integer> list = List.of(1, 2);
+  Number[] array = list.toArray(new Number[3]);//可以向上转型！！！
+  ```
+* `List<Integer> list = List.of(array)`;//!! List.of 返回只读类型的list
+* List<Integer> list = Array.asList(array);
+### equals方法
+要正确使用List的contains() indexof()方法，放入的实例必须正确覆写equals()方法，否则可以不用
+* 自反性，对于非null的x来说，x.equals(x)为true
+* 对称性，对于非null的x，y来说，x.equals(y)为true，y.equals(x)也为true
+* 传递性，对于非null的x,y,z，x.equals(y)为true，y.equals(x)为true，那么x.equals(x)也为true
+* 一致性，对于非null的x,y来说，只要x，y状态不变，x.equals(y)总是一致的返回true或false
+* 对非null的比较，x.equals(null)永远返回false  
+**对于引用字段比较用equals，对于基本类型字段用==**  
+可调用Object.equals(a,b)静态方法，省去对null的判断
+1. 先确定实例相等逻辑
+2. 用instanceof判断传入的待比较的Object是不是当前类型，如果是，则继续，否则false
+3. 对引用类型用Object.equals，对基本类型用==
+### Map 
+Map中不存在重复的Key，相同的Key会把原有的Key-Value替换  
+#### 遍历Map
+遍历时，不能假设输出的key为有序的   
+* 遍历Key
+  map.keySet()返回不重复的key集合
+   ```java
+   for(String key : map.keySet()){
+
+   }
+   ```
+* 遍历key和value
+   ```java
+   for(Map.Entry<String, String> entry : map.entrySet()){
+     String key = entry.getKey();
+     String value = entry.getValue();
+   }
+   ```
+### equals 和hashcode
+正确使用Map
+* 作为key对象覆写equals()方法，相等的两个key实例调用equals()返回true
+  * 对引用对象调用Object.equals，对基本类型调用==
+* 作为key对象覆写hashcode()方法
+  * 如果两个对象相等，则hashcode()必须相等
+  * 如果两个对象不等，则hashcode()尽量不相等
+ ```java
+ @Override
+ int hashcode(){
+   int h =0;
+   h = 31*h + firstname.hashCode();
+  h = 31*h + secondname.hashCode();
+  h = 31*h +age;
+  return h;
+ }
+ ```
+ 同样为了NPE问题，可以调用`Object.hash`方法，如果有数组作为参数，`Arrays.hashCode(array)`包起来作为参数传给`Object.hash`。----https://stackoverflow.com/questions/29955291/why-objects-hash-returns-different-values-for-the-same-input
+ ```java
+ int hashCode(){
+   return Object.hash(firstname, secondname, age);
+ }
+ ```
+ 原则：
+ equals()用到的用于比较的每一个字段，都在hashCode()中用于计算，equals()中没有用到的字段，一定不要在hashCode()中计算。
+
+
+
+
+
+
+
+
 ### 重写（Override） VS 重载（Overload）
   * Override
     * 重写方法不能抛出新的异常或者比被重写方法方法更加宽泛的异常

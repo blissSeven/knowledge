@@ -1,4 +1,7 @@
-# Thrift
+# Thrif- [Thrift](#thrift)
+  - [install](#install)
+    - [requirements](#requirements)
+    - [build](#build)  
 http://thrift.apache.org/
 ## install
 ### requirements
@@ -7,6 +10,8 @@ http://thrift.apache.org/
   * https://ant.apache.org/manual/index.html
 ###  build 
 * 步骤http://thrift.apache.org/docs/BuildingFromSource
+  * 确保有权限 sudo chown -R bliss ./thrift-0.13.0
+  * sudo 下找不到java 可用sudo -E 代替sudo
  ```bash
   ./configure
         Building Java Library ........ : yes

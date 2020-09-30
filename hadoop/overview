@@ -1,0 +1,8 @@
+# Hadoop
+## install
+https://www.cnblogs.com/sench/p/8542175.html
+* jps命令后，有DataNode 和NameNode进程才算成功
+* 在格式化时，保证有权限操作。`sudo chown -R bliss ./hadoop`
+* 提示JAVA_HOME没有设置时，在/etc/hadoop/hadoop-env.sh 再次设置JAVA_HOME
+* 手动创建dfs.namenode.name.dir 或者dfs.datanode.data.dir 试试
+* 格式化失败时，再次运行前删除目录试试
