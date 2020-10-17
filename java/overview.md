@@ -73,6 +73,26 @@
     - [Map](#map)
       - [遍历Map](#遍历map)
     - [equals 和hashcode](#equals-和hashcode)
+    - [EnumMap](#enummap)
+    - [TreeMap](#treemap)
+      - [comparable VS comparator](#comparable-vs-comparator)
+    - [使用Properties](#使用properties)
+      - [读](#读)
+      - [写](#写)
+      - [编码](#编码)
+    - [Set](#set)
+    - [Queue](#queue)
+    - [PriprityQueue](#priprityqueue)
+    - [Deque](#deque)
+    - [Stack](#stack)
+    - [Iterator](#iterator)
+    - [Collections](#collections)
+      - [创建空集合](#创建空集合)
+      - [单元素集合](#单元素集合)
+      - [排序](#排序)
+      - [洗牌](#洗牌)
+      - [不可变集合](#不可变集合)
+      - [线程安全集合](#线程安全集合)
     - [重写（Override） VS 重载（Overload）](#重写override-vs-重载overload)
 ## 语法  
 ### 基础
@@ -1530,16 +1550,276 @@ Map中不存在重复的Key，相同的Key会把原有的Key-Value替换
    return Object.hash(firstname, secondname, age);
  }
  ```
- 原则：
+ 原则：  
  equals()用到的用于比较的每一个字段，都在hashCode()中用于计算，equals()中没有用到的字段，一定不要在hashCode()中计算。
+hash内部使用了数组，通过计算key的hashCode()定位value的索引。
+* hashmap 初始化时默认数组大小16，任何key，无论hashCode()多大，都通过`int index = key.hashCode() & 0x0f`,将索引定位在0-15
+* 如果添加元素超过16，HashMap内部自动扩充，每次扩充一倍，后需要重新计算hashCode对应的索引`int index = key.hashCode() & 0X1f`
+* 频繁扩充影响性能，最好创建时指定大小,HashMap内部数组大小为 $2^n$
+  * `Map<String, Integer> map = new HashMap<>(10000);`实际大小为16384
+* hash冲突时，每个索引处存放一个List包含多个Entry，
+  * 内部通过key实际找到的为List<Entry<String , Person>>,之后再遍历这个List
 
+### EnumMap
+当key为Enum类型时，EnumMap内部以非常紧凑的数组存储value，根据enum类型的key直接定位到内部数组的索引，不需要计算hashCode(),效率高，空间省
+```java
+Map<DayOfWork, String> map = new EnumMap<>(DayOfWork.class);
+map.put(DayOfWork.MONDAY, "周一");
+map.get(DayOfWork.MONDAY);
+```
+### TreeMap
+HashMap内部key无序，遍历Key时，顺序不可预测。对key会排序的接口Map为SortedMap，实现类为TreeMap。SortedMap保证以key的顺序，放入的key必须实现Comparable接口。或者在创建时定义个排序算法，传入Comparator类
+```java
+Map<Person, Integer> map = new TreeMap<>(new Comparator<Person>(){
+  public int compare(Person p1, Person p2){
+  }
+});
+```
+#### comparable VS comparator
+```java
+ package java.lang;
+public interface Comparable<T> {
+    public int compareTo(T o);
+}
+```
+```java
+package java.util;
+public interface Comparator<T> {
+   int compare(T o1, T o2);
+   boolean equals(Object obj);
+  //....... many interface
+}
+```
+Comparable对实现它的每个类的对象进行整体排序，这个接口需要类本身实现，需要在设计类之处就实现该接口类。    
+* 实现Comparable接口的类的List/数组，通过Collections.sort或者Arrays.sort进行排序
+* 也可作为有序映射TreeMap或有序集合TreeSet中的元素，而不需要指定比较器
+```java
+public class Person1 implements Comparable<Person1>{
+  @Override
+  public int compareTo(Person1 o){
+    return this.age - o.age;
+  }
+}
+      Person1 person1 = new Person1("zzh",18);
+      Person1 person2 = new Person1("jj",17);
+      Person1 person3 = new Person1("qq",19);
 
+      List<Person1> list = new ArrayList<>();
+      list.add(person1);
+      list.add(person2);
+      list.add(person3);
 
+      System.out.println(list);
+      Collections.sort(list);
+```
+当类不可修改，有需要对其进行排序时，需要用到comparator
+```java
+pulibc final class Person2{
 
+}
+```
+final修饰，无法再implements Comparable,在类的外部使用Comparator接口
+```java
+      Person2 p1 = new Person2("zzh",18);
+      Person2 p2 = new Person2("jj",17);
+      Person2 p3 = new Person2("qq",19);
+      List<Person2> list2 = new ArrayList<Person2>();
+      list2.add(p1);
+      list2.add(p2);
+      list2.add(p3);
+      System.out.println(list2);
+      Collections.sort(list2,new Comparator<Person2>(){
 
+          @Override
+          public int compare(Person2 o1, Person2 o2)
+          {
+           if(o1 == null || o2 == null)
+			return 0;
+              return o1.getAge()-o2.getAge();
+          }
+      });
+      System.out.println(list2);
+```
+总结  
+Comparable 是排序接口；若一个类实现了 Comparable 接口，就意味着 “该类支持排序”。而 Comparator 是比较器；我们若需要控制某个类的次序，可以建立一个 “该类的比较器” 来进行排序
 
+### 使用Properties
+配置文件Key-value一般都是String-String的，默认以properties扩展名
+#### 读
+```java
+# setting.properties
+last_open_file=/data/hello.txt 
+auto_save_interval=60
+```
+```java
+String f = "setting.properties"
+Properties props = new Properties();
+props.load(new java.io.FileInputStream(f));
+//propes.load(getClass().getResourceAsStream("/common/setting.properties")); 多次load会覆盖之前的
+String filepath = props.getProperty("last_ioen_file")//不存在 返回Null
+props.getProperty("auto_save", "60"));//默认值
+```
+#### 写
+```java
+Properties props = new Properties();
+props.setProperty("url","www.baidu.com");
+props.setProperty("l","1");
+props.store(new FileOutputStream("C:/conf/setting.properties"),"this is writed annotation");
+```
+#### 编码
+早起规定.properties编码ascii，中文时用`name=\u4e2d\u6587`表示，JDK9后，.properties可以使用UTF-8编码。`load(InputStream)`总是以ASCII编码读取字节流，乱码。`load(Reader)`使用字符流,已经在内存中以char表示，不涉及编码问题
+```java
+props.load(new FileReader("settings.properties", StandardCharsets.UTF_8));
+```
+### Set 
+存储不重复的元素集合
+* boolean add(E e)
+* boolean remove(Object e)
+* boolean contains(Object e)
+常用HashSet为HashMap的简单封装，理解为只存储key的HashMap
+```java
+public class HashSet<E> implements Set<E>{
+  private HashMap<E, Object> map = new HashMap<>();
+  private static final Object PRESENT = new Object();
+  public boolean add(E e){
+    return map.put(e, PRESENT) == null;
+  }
+  public boolean contains(Object o){
+    return map.contains(o);
+  }
+  public boolean remove(Object o){
+    return map.remove(o) == PRESENT;
+  }
+}
+```
+类似SortedMap TreeMap，存在SortedSet TreeSet，key的排序顺序，TreeSet需要key的类实现Comparable接口，或者创建TreeSet时传入Comparator对象。
+### Queue
+**避免将null传入Queue**，实现类有`AbstractQueue, ArrayBlockingQueue, ArrayDeque, ConcurrentLinkedDeque, ConcurrentLinkedQueue, DelayQueue, LinkedBlockingDeque, LinkedBlockingQueue, LinkedList, LinkedTransferQueue, PriorityBlockingQueue, PriorityQueue, SynchronousQueue`
+|desc|throws Exception| false或null|
+|:-:|:-:|:-:|
+|队列长度||int size()|
+|添加到队尾|boolean add(E e)|boolean offer(E e)|
+|取队首元素并删除|E remove()|E poll()|
+|取队首元素不删除|E element()|E peek()|
+```java
+Queue<String> q = new LinkedList<>();
+List<String> list = new LinkedList<>();//LinkedList既实现了List,也实现了Queue
+```
+### PriprityQueue
+即有顺序的Queue,要求存放的元素implements Comparable接口，或者在创建PriorityQueue时传入Comparator对象。   
+PriorityQueue和Queue的区别在于，它的出队顺序与元素的优先级有关，对PriorityQueue调用remove()或poll()方法，返回的总是优先级最高的元素
+```java
+Queue<User> q =new PriorityQueue<>(new UserComparator());
 
+class UserComparator implements Comparator<User>{
+  public int compare(User u1, User u2){
 
+  }
+}
+```
+### Deque
+双端队列,实现类有ArrayDeque和LinkedList,避免把null添加到队列
+|desc|Queue|Deque|
+|:-:|:-:|:-:|
+|添加到队尾|add(E e)/offer(E e)|addLast(E e)/offerLast(E e)|
+|取队首不删除|E element()/E peek()|E getFirst()/E peekFirst()|
+|取队首并删除|E remove()/E poll()|E removeFirst()/E pollFirst()|
+|添加到队首|None|addFirst(E e)/offerFirst(E e)|
+|取队尾不删除|None|E getLast()/E peekLast()|
+|取队尾并删除|None|E getFirst()/E peekFirst()|
+### Stack
+Deque模拟的Stack
+* 压栈 push(E)
+* 取栈顶弹出 pop(E)
+* 取栈顶不弹出 peek(E)
+
+### Iterator
+for each 通过Iterator改写成了普通的for循环。
+自定义集合类的for each循环，条件
+* 实现Iterable接口，按要求返回一个Iterator对象
+* 用Iterator对象迭代集合内部数据
+
+在编写Iterator的时候，我们通常可以用一个内部类来实现Iterator接口，这个内部类可以直接访问对应的外部类的所有字段和方法。例如，上述代码中，内部类ReverseIterator可以用ReverseList.this获得当前外部类的this引用，然后，通过这个this引用就可以访问ReverseList的所有字段和方法。
+```java
+ReverseList<String> rlist = new ReverseList<>();
+rlist.add("apple");
+
+class ReverseList<T> implements Iterable<T>{
+  private List<T> list = new ArrayList<>();
+  public void add(T t){
+    list.add(T);
+  }
+  @Override
+  public Iterator<T> iterator(){
+    return new ReverseIterator(list.size());
+  }
+  class ReverseIterator implements Iterator<T>{
+    int index;
+    ReverseIterator(int index){
+      this.index = index;
+    }
+    @Override
+    public boolean hasNext(){
+      return index > 0;
+    }
+    @Override
+    public T next(){
+      index --;
+      return ReverseList.this.list.get(index);
+    }
+  }
+}
+```
+Iterator进行迭代好处
+* 对任何集合统一
+* 调用者无需对集合内部结构了解
+* 集合类返回的Iterator对象知道如何迭代  ??
+
+### Collections
+位于`java.util`包中，提供了静态方法，便于对集合操作
+#### 创建空集合
+返回的空集合为不可变对象，无法添加元素
+* List<T> emptyList();
+* Map<K, V> emptyMap()
+* Set<T> emptySet()
+也可利用集合提供的`of`接口
+```java
+List<String> list1 = List.of();
+List<String> list2 = Collections.emptyList();
+```
+#### 单元素集合
+也是不可变
+* List<T> singletonList(T o)
+* Map<K, V>singletonMap(K key, V value);
+* Set<T> singleton(T o)
+同样也可以用`List.of(T o)`
+#### 排序
+Collections 对List排序，会改动List元素位置，传入可变的List
+```java
+ Collections.sort(list);
+```
+#### 洗牌
+`Collections.shuffle(list);`
+#### 不可变集合
+提供了一组方法把可变集合封装成不可变集合,继续对原始的可变List进行增删是可以的，并且，会直接影响到封装后的“不可变”List,如果我们希望把一个可变List封装成不可变List，那么，返回不可变List后，最好立刻扔掉可变List的引用，这样可以保证后续操作不会意外改变原始对象，从而造成“不可变”List变化
+
+* 封装成不可变List：List<T> unmodifiableList(List<? extends T> list)
+* 封装成不可变Set：Set<T> unmodifiableSet(Set<? extends T> set)
+* 封装成不可变Map：Map<K, V> unmodifiableMap(Map<? extends K, ? extends V> m)
+```java
+      List<String> mutable = new ArrayList<>();
+        mutable.add("apple");
+        mutable.add("pear");
+        // 变为不可变集合:
+        List<String> immutable = Collections.unmodifiableList(mutable);
+        // 立刻扔掉mutable的引用:
+        mutable = null;
+```
+#### 线程安全集合
+从Java 5开始，引入了更高效的并发集合类,所以上述这几个同步方法已经没有什么用了。
+* 变为线程安全的List：List<T> synchronizedList(List<T> list)
+* 变为线程安全的Set：Set<T> synchronizedSet(Set<T> s)
+* 变为线程安全的Map：Map<K,V> synchronizedMap(Map<K,V> m)
 ### 重写（Override） VS 重载（Overload）
   * Override
     * 重写方法不能抛出新的异常或者比被重写方法方法更加宽泛的异常
