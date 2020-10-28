@@ -1464,12 +1464,12 @@ static boolean isNull(Pair<?> p){
 * Stack 基于Vector实现的LIFO栈
 * Enumeration<E> 被Iterator<E>取代
 ### List
-|-----|    ArrayList|LinkedList|
-|:----------------:|:-----------:|:-------------:|
-|获取指定元素|快|从头开始查找|
-| 添加元素到末尾   |         快      |               快               |
-|指定位置添加、删除|需要移动元素|不需要移动|
-|   内存占有   |    少    |   多    |
+|       -----        |  ArrayList   |  LinkedList  |
+| :----------------: | :----------: | :----------: |
+|    获取指定元素    |      快      | 从头开始查找 |
+|   添加元素到末尾   |      快      |      快      |
+| 指定位置添加、删除 | 需要移动元素 |  不需要移动  |
+|      内存占有      |      少      |      多      |
 #### 创建
 * `List<Integer> list = new ArrayList<>()`
 * `List<Integer> list = new LinkedList<>()`
@@ -1695,12 +1695,12 @@ public class HashSet<E> implements Set<E>{
 类似SortedMap TreeMap，存在SortedSet TreeSet，key的排序顺序，TreeSet需要key的类实现Comparable接口，或者创建TreeSet时传入Comparator对象。
 ### Queue
 **避免将null传入Queue**，实现类有`AbstractQueue, ArrayBlockingQueue, ArrayDeque, ConcurrentLinkedDeque, ConcurrentLinkedQueue, DelayQueue, LinkedBlockingDeque, LinkedBlockingQueue, LinkedList, LinkedTransferQueue, PriorityBlockingQueue, PriorityQueue, SynchronousQueue`
-|desc|throws Exception| false或null|
-|:-:|:-:|:-:|
-|队列长度||int size()|
-|添加到队尾|boolean add(E e)|boolean offer(E e)|
-|取队首元素并删除|E remove()|E poll()|
-|取队首元素不删除|E element()|E peek()|
+|       desc       | throws Exception |    false或null     |
+| :--------------: | :--------------: | :----------------: |
+|     队列长度     |                  |     int size()     |
+|    添加到队尾    | boolean add(E e) | boolean offer(E e) |
+| 取队首元素并删除 |    E remove()    |      E poll()      |
+| 取队首元素不删除 |   E element()    |      E peek()      |
 ```java
 Queue<String> q = new LinkedList<>();
 List<String> list = new LinkedList<>();//LinkedList既实现了List,也实现了Queue
@@ -1719,14 +1719,14 @@ class UserComparator implements Comparator<User>{
 ```
 ### Deque
 双端队列,实现类有ArrayDeque和LinkedList,避免把null添加到队列
-|desc|Queue|Deque|
-|:-:|:-:|:-:|
-|添加到队尾|add(E e)/offer(E e)|addLast(E e)/offerLast(E e)|
-|取队首不删除|E element()/E peek()|E getFirst()/E peekFirst()|
-|取队首并删除|E remove()/E poll()|E removeFirst()/E pollFirst()|
-|添加到队首|None|addFirst(E e)/offerFirst(E e)|
-|取队尾不删除|None|E getLast()/E peekLast()|
-|取队尾并删除|None|E getFirst()/E peekFirst()|
+|     desc     |        Queue         |             Deque             |
+| :----------: | :------------------: | :---------------------------: |
+|  添加到队尾  | add(E e)/offer(E e)  |  addLast(E e)/offerLast(E e)  |
+| 取队首不删除 | E element()/E peek() |  E getFirst()/E peekFirst()   |
+| 取队首并删除 | E remove()/E poll()  | E removeFirst()/E pollFirst() |
+|  添加到队首  |         None         | addFirst(E e)/offerFirst(E e) |
+| 取队尾不删除 |         None         |   E getLast()/E peekLast()    |
+| 取队尾并删除 |         None         |  E getFirst()/E peekFirst()   |
 ### Stack
 Deque模拟的Stack
 * 压栈 push(E)

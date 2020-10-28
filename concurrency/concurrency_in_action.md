@@ -1177,13 +1177,4 @@ void checkAll(){
 * CyclicBarrier 执行回调函数的是将CyclicBarrier减到0的那个线程。
 * 看到回调函数时，想想执行回调函数的是哪个？
 
-#!/bin/bash
 
-base_dir=`dirname $0`
-base_dir= /home/work/wangpeng1/scripts/
-
-CLASSPATH=$base_dir/../classes:$base_dir/../lib/xiaomi-thrift-sns-0.0.21.jar:$base_dir/../lib/*
-MAIN_CLASS=com.xiaomi.xiaoqiang.task.dailyStat.StatDataImport
-
-kinit -k -t /etc/conf/xiaoqiang/h_xiaoqiang.keytab h_xiaoqiang@XIAOMI.HADOOP
-/opt/soft/jdk1.8.0_25/bin/java -Xms4096m -Xmx4096m -XX:MaxPermSize=1024m -XX:OnOutOfMemoryError="kill -9 %p" -classpath $CLASSPATH "$MAIN_CLASS" $@

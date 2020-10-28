@@ -1,7 +1,6 @@
 # Foam
 **To be a programmer，one of the greatest!!!**
 
-![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/08/21/17-37-05-f14771ba8b0a1ffb6170aacfd5f647c6-20200821173705-731021.png)
 ## Markdown Note
 * keyshortcut
   * ctrl+shift+prscrn  截图到剪贴板
@@ -17,6 +16,7 @@
 * 跳转后调回  alt+shift+左键
 * 继续前进  alt+shift+右键
 * 一个方法一个方法的跳转 alt+上下键
+* ctrl+alt+L 代码格式化
 ## Ubuntu
 * 切换工作区 ctrl+alt+↑↓键
 * 将当前窗口移动到工作区ctrl+alt+shift+↑↓键
