@@ -1,8 +1,201 @@
 # Hadoop
-## install
+## hadoop install
 https://www.cnblogs.com/sench/p/8542175.html
 * jps命令后，有DataNode 和NameNode进程才算成功
 * 在格式化时，保证有权限操作。`sudo chown -R bliss ./hadoop`
 * 提示JAVA_HOME没有设置时，在/etc/hadoop/hadoop-env.sh 再次设置JAVA_HOME
 * 手动创建dfs.namenode.name.dir 或者dfs.datanode.data.dir 试试
 * 格式化失败时，再次运行前删除目录试试
+* `start-yarn.sh` 启动yarn资源管理
+* `mr-jobhistory-daemon.sh start historyserver` 查看历史任务
+## hive install
+https://www.cnblogs.com/sench/p/8542564.html
+* 启动hive start-dfs.sh
+### wordcount 单输入
+```java 
+package MapReduceTest;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
+
+import java.io.IOException;
+import java.util.UUID;
+
+public class WordCountDriver {
+    public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
+        Configuration conf = new Configuration();
+
+        //设置的没有用!  ??????
+//		conf.set("HADOOP_USER_NAME", "hadoop");
+//		conf.set("dfs.permissions.enabled", "false");
+
+        //不提交在yarn上面，只在本地跑
+        conf.set("mapreduce.framework.name", "local");
+        //本地模式运行mr程序时，输入输出的数据可以在本地，也可以在hdfs上
+        //到底在哪里，酒宴以下两行配置，用的是哪行,默认是本地的
+        conf.set("fs.defaultFS", "file:///");
+		/*conf.set("fs.defaultFS", "hdfs://192.168.175.128:9000/");
+		conf.set("mapreduce.framework.name", "yarn");
+		conf.set("yarn.resoucemanager.hostname", "192.168.178.128");*/
+        Job job = Job.getInstance(conf, WordCountDriver.class.getSimpleName());
+
+        /*job.setJar("/home/hadoop/wc.jar");*/
+        //指定本程序的jar包所在的本地路径
+        job.setJarByClass(WordCountDriver.class);
+
+        //指定本业务job要使用的mapper/Reducer业务类
+        job.setMapperClass(WordCountMapper.class);
+        job.setReducerClass(WordCountReducer.class);
+
+        //指定需要使用combiner，以及用哪个类作为combiner的逻辑
+        /*job.setCombinerClass(WordcountCombiner.class);*/
+        job.setCombinerClass(WordCountReducer.class);
+
+        //如果不设置InputFormat，它默认用的是TextInputformat.class
+		/*job.setInputFormatClass(CombineTextInputFormat.class);
+		CombineTextInputFormat.setMaxInputSplitSize(job, 4194304);
+		CombineTextInputFormat.setMinInputSplitSize(job, 2097152);*/
+
+        //指定mapper输出数据的kv类型
+        job.setMapOutputKeyClass(Text.class);
+        job.setMapOutputValueClass(IntWritable.class);
+
+        //指定最终输出的数据的kv类型
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(IntWritable.class);
+
+        //指定job的输入原始文件所在目录
+//        FileInputFormat.setInputPaths(job, new Path("/home/bliss/note/wordstest/input"));
+        MultipleInputs.addInputPath(job, new Path("/home/bliss/note/wordstest/input"), TextInputFormat.class, WordCountMapper.class);
+        //指定job的输出结果所在目录
+        FileOutputFormat.setOutputPath(job, new Path("/home/bliss/note/wordstest/output/" + UUID.randomUUID()));
+
+        MultipleOutputs.addNamedOutput(job, "multioutput", TextOutputFormat.class, Text.class, IntWritable.class);
+        //将job中配置的相关参数，以及job所用的java类所在的jar包，提交给yarn去运行
+        /*job.submit();*/
+        boolean res = job.waitForCompletion(true);
+        System.exit(res ? 0 : 1);
+
+    }
+}
+
+```
+```java
+package MapReduceTest;
+
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+
+
+import org.apache.hadoop.mapreduce.lib.input.FileSplit;
+
+import org.apache.hadoop.mapreduce.*;
+import org.apache.hadoop.io.Text;
+
+import org.apache.hadoop.mapreduce.InputSplit;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
+public class WordCountMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+
+    public String getFilePath(Mapper.Context context, String counterGroupKey) {
+        InputSplit inputSplit = context.getInputSplit();
+
+        Class<? extends InputSplit> splitClass = inputSplit.getClass();
+        FileSplit fileSplit = null;
+//        org.apache.hadoop.mapreduce.lib.input.FileSplit
+        if (splitClass.equals(FileSplit.class)) {
+            fileSplit = (FileSplit) inputSplit;
+            System.out.println(" splitClass.getName() " + splitClass.getName());
+        } else if (splitClass.getName().equals("org.apache.hadoop.mapreduce.lib.input.FileSplit")) {
+            try {
+                Method getInputSplitMethod = splitClass.getDeclaredMethod("getInputSplit");
+                getInputSplitMethod.setAccessible(true);
+//                绑定调用的对象
+                fileSplit = (FileSplit) getInputSplitMethod.invoke(inputSplit);
+            } catch (Throwable t) {
+                context.getCounter(counterGroupKey + "GetFileNameException", t.getClass().getName()).increment(1);
+            }
+        }
+        if (fileSplit != null) {
+            return fileSplit.getPath().toString();
+        }
+        return null;
+    }
+
+    @Override
+    protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+        String line = value.toString();
+        String[] words = line.split(" ");
+        String groupCounterKey = "minput";
+//       file:/home/bliss/note/wordstest/input/hello
+        String filepath = getFilePath(context, groupCounterKey);
+        System.out.println("filepath: " + filepath);
+        for (String word : words) {
+            context.write(new Text(word), new IntWritable(1));
+            context.getCounter("map", "wordscount").increment(1);
+        }
+    }
+}
+
+```
+```java
+package MapReduceTest;
+
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
+
+import java.io.IOException;
+
+public class WordCountReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
+    MultipleOutputs<Text, IntWritable> mos;
+    @Override
+    protected  void setup(Context context) throws IOException, InterruptedException{
+        mos = new MultipleOutputs<>(context);
+    }
+    //生命周期：框架每传递进来一个kv 组，reduce方法被调用一次
+    @Override
+    protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+
+        context.getCounter("reduceFunction", "reduceFunctioncounts").increment(1);
+        StringBuilder sb = new StringBuilder();
+
+        //定义一个计数器
+        int count = 0;
+        //遍历这一组kv的所有v，累加到count中
+        for (IntWritable value : values) {
+            count += value.get();
+            context.getCounter("reduce", "reducecounts").increment(1);
+            sb.append(value);
+            sb.append(" ");
+        }
+        System.out.println("call reduce funciton " + key + " ------ " + sb.toString());
+//        context.write(key, new IntWritable(count));
+//        multipleOutputs for test
+
+        mos.write("multioutput", key, new IntWritable(count));
+
+    }
+//一定重写函数，否则 文件没有输出
+    @Override
+    protected void cleanup(Context context) throws IOException, InterruptedException {
+        mos.close();
+    }
+}
+```

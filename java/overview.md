@@ -93,6 +93,21 @@
       - [洗牌](#洗牌)
       - [不可变集合](#不可变集合)
       - [线程安全集合](#线程安全集合)
+  - [IO](#io)
+    - [File对象](#file对象)
+      - [File](#file)
+    - [InputStream](#inputstream)
+    - [OutputStream](#outputstream)
+    - [Filter模式](#filter模式)
+    - [zip](#zip)
+    - [读取classpath资源](#读取classpath资源)
+    - [序列化](#序列化)
+      - [序列化](#序列化-1)
+      - [反序列化](#反序列化)
+    - [Reader](#reader)
+    - [Writer](#writer)
+    - [PrintStream & PrintWriter](#printstream--printwriter)
+    - [Files](#files)
     - [重写（Override） VS 重载（Overload）](#重写override-vs-重载overload)
 ## 语法  
 ### 基础
@@ -1816,10 +1831,261 @@ Collections 对List排序，会改动List元素位置，传入可变的List
         mutable = null;
 ```
 #### 线程安全集合
-从Java 5开始，引入了更高效的并发集合类,所以上述这几个同步方法已经没有什么用了。
+从Java 5开始，引入了更高效的并发集合类,所以下述这几个同步方法已经没有什么用了。
 * 变为线程安全的List：List<T> synchronizedList(List<T> list)
 * 变为线程安全的Set：Set<T> synchronizedSet(Set<T> s)
 * 变为线程安全的Map：Map<K,V> synchronizedMap(Map<K,V> m)
+## IO
+### File对象
+#### File
+`File f = new File(path)` 可以传入相对路径、绝对路径
+* `getPath()` 返回传入的参数
+* `getAbsolutePath()` 返回绝对路径，`C:\Windows\System32\..\notepad.exe`
+* `getCanonicalPath()`返回规范路径，`C:\Windows\notepad.exe`
+
+File可以表示文件、或者目录，即使文件、目录不存在，也不报错，调用方法时，涉及磁盘操作时，会报错。
+* `boolean canRead()`
+* `boolean canWrite()`
+* `boolean canExecute()`
+* `long length()`文件字节大小
+* `boolean isFile()`是否是已存在的文件，不存在返回false
+* `boolean isDirectory()`
+  
+创建、删除文件
+```java
+File file = new File("./new.text");
+if(file.createNewFile()){ //创建成功
+  if(file.delete()){
+// 删除成功
+  }
+}
+```
+```java
+File f = File.createTempFile("temp-","txt");//临时文件
+f.deleteOnExit();//jvm退出后自动删除
+```
+遍历文件
+```java
+File f = new File("/home/bliss/miwork");
+File[] fs1 = f.listFiles();
+File[] fs2 = f.listFiles(new FilenameFilter(){
+  public boolean accept(File dir, String name){
+    return name.endswith(".bin");//返回bin结尾的文件
+  }
+});
+String[] fs3 = f.list();// 返回文件的名字
+```
+创建目录
+* `boolean mkdir()`
+* `boolean mkdirs()` 有必要会创建父目录
+* `boolean delete()`
+  
+Path，进行复杂的目录拼接、遍历
+```java
+  Path path = Paths.get("/home/bliss","note");
+  Path path1 = path.toAbsolutePath();
+  Path path2 = path.normalize();
+  File f = path2.toFile();
+  for(Path p : path){
+      logger.info("--{}",p); //--home --bliss --note
+  }
+```
+### InputStream
+抽象类，所有输入流的超类，`public abstract int read() throws IOException;`读取输入流的下一个字节，返回int值，如果末尾则-1.
+```java
+/*
+try(resource){
+
+}//自动关闭资源，不用close()
+编译器只看try(resource = ...)中的对象是否实现了java.lang.AutoCloseable接口，如果实现了，就自动加上finally语句并调用close()方法。InputStream和OutputStream都实现了这个接口，因此，都可以用在try(resource)中
+*/
+try(InputStream input = new FileInputStream("/home/bliss/out.txt")){
+            int n;
+            while((n=input.read())!=-1){
+                System.out.println(n);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        })
+```
+缓冲
+* `int read(byte[]b)`读取若干字节到byte[]数组，返回读取的字节数
+* `int read(byte[] b, int off, int len)`
+  ```java
+   byte[] b = new byte[1000];
+        try (InputStream input = new FileInputStream("/home/bliss/out.txt")) {
+            int n;
+            while ((n = input.read(b)) != -1) {
+                System.out.println("read " + n + "bytes");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+  ```
+阻塞  
+InputStream 实现类
+* FileInputStream 从文件获取输入流
+* ByteArrayInputStream 数据模拟输入流
+```java byte[] data = { 72, 101, 108, 108, 111, 33 };
+        try (InputStream input = new ByteArrayInputStream(data)) {
+            int n;
+            while ((n = input.read()) != -1) {
+                System.out.println((char)n);
+            }
+        }
+```
+### OutputStream
+抽象类，所有输出流超类，`public abstract void write(int b) throws IOException` 写一个**字节**到输出流（b&0xff),`close()`关闭输出流，`flush()`将强制缓冲区内容输出到目的地。   
+输入输出缓冲区   
+因为向磁盘、网络写入数据的时候，出于效率的考虑，操作系统并不是输出一个字节就立刻写入到文件或者发送到网络，而是把输出的字节先放到内存的一个缓冲区里（本质上就是一个byte[]数组），等到缓冲区写满了，再一次性写入文件或者网络。实际上，InputStream也有缓冲区。例如，从FileInputStream读取一个字节时，操作系统往往会一次性读取若干字节到缓冲区，并维护一个指针指向未读的缓冲区。然后，每次我们调用int read()读取下一个字节时，可以直接返回缓冲区的下一个字节，避免每次读一个字节都导致IO操作。当缓冲区全部读完后继续调用read()，则会触发操作系统的下一次读取并再次填满缓冲区。
+
+```java
+ File file = new File("/home/bliss/out.txt");
+        if(!file.isFile()){
+            file.createNewFile();
+        }
+
+        try(OutputStream outputStream = new FileOutputStream("/home/bliss/out.txt")){
+            outputStream.write(72);
+            outputStream.write("hello".getBytes("utf-8"));
+        }
+        byte[] b= new byte[1000];
+        InputStream inputStream = new FileInputStream("/home/bliss/out.txt");
+        inputStream.read(b);
+        inputStream.close();
+        logger.info(String.valueOf(getChars(b)));//Hhello
+```
+阻塞  
+OutputStream实现类
+* FileOutputStream
+* ByteArrayOutputStream 数组模拟输出流
+```java
+        byte[] data;
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            output.write("Hello ".getBytes("UTF-8"));
+            output.write("world!".getBytes("UTF-8"));
+            data = output.toByteArray();
+        }
+        System.out.println(new String(data, "UTF-8"));
+```
+`try(resource){}`可以多个资源，transferTo直接流转换
+```java
+// 读取input.txt，写入output.txt:
+try (InputStream input = new FileInputStream("input.txt");
+     OutputStream output = new FileOutputStream("output.txt"))
+{
+    input.transferTo(output); // transferTo的作用是?
+}
+```
+### Filter模式
+1个“基础”组件再叠加各种“附加”功能组件的模式，称之为Filter模式（或者装饰器模式：Decorator），可以在运行期间动态增加功能。
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/10/28/20-24-19-659fe9fd144b789a4b562c46a714a07d-20201028202419-11292e.png)
+jdk将InputStream分为两类
+* 提供数据的基础InputStream 
+  * FileInputStream
+  * ByteArrayInputStream
+  * ...
+* 提供额外功能的InputStream
+  * BufferedInputStream
+  * DigestInputStream
+  * ...
+```java
+InputStream file = new FileInputStream("test.gz");//确认提供数据源的InputStream
+InputStream buffered = new BufferedInputStream(file);// 给file添加buffer功能
+InputStream gzip = new GZIPInputStream(buffered);//读取zip文件功能
+```
+自定义 FileterInputStream
+```java
+public class Main {
+    public static void main(String[] args) throws IOException {
+        byte[] data = "hello, world!".getBytes("UTF-8");
+        try (CountInputStream input = new CountInputStream(new ByteArrayInputStream(data))) {
+            int n;
+            while ((n = input.read()) != -1) {
+                System.out.println((char)n);
+            }
+            System.out.println("Total read " + input.getBytesRead() + " bytes");
+        }
+    }
+}
+
+ private static class CountInputStream extends FilterInputStream {
+        protected CountInputStream(InputStream in) {
+            super(in);
+        }
+        private int count = 0;
+        @Override
+        public int read() throws IOException{
+            int n = in.read();
+            if (n != -1){
+                count += n;
+            }
+            return n;
+        }
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            int n =in.read(b,off,len);
+            count += len;
+            return n;
+        }
+    }
+}
+```
+### zip
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/10/28/20-36-31-4d3ef9bd3b5f4d72008118c88c96fed4-20201028203631-3350d5.png)
+### 读取classpath资源
+```java
+ InputStream in =  StreamTest.class.getResourceAsStream("/assembly.xml");
+    if(in !=null){   
+    }
+```
+```java
+Properties props = new Properties();
+props.load(inputStreamFromClassPath("/default.properties"));
+props.load(inputStreamFromFile("./conf.properties"));
+```
+### 序列化
+序列化，将对象变为二进制内容，即byte[]数组，序列化后可以将byte[]保存到文件中，或者通过网络传输。类序列化，必须实现Serializable接口(空接口为标记接口)
+```java
+public interface Serializable{}
+```
+#### 序列化
+```java
+ ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        try(ObjectOutputStream output = new ObjectOutputStream(buffer)){
+            output.writeInt(123);
+            output.writeObject(new Integer(1));
+        }
+        logger.info(Arrays.toString(buffer.toByteArray()));
+```
+#### 反序列化
+```java
+byte[] bb = buffer.toByteArray();
+
+        ByteInputStream byteInputStream = new ByteInputStream(bb, bb.length);
+        try(ObjectInputStream input = new ObjectInputStream(byteInputStream)){
+            int n = input.readInt();
+            Object o = input.readObject();
+            logger.info("n = {} o ={}",n, o);
+            
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+```
+readObject可能抛异常
+* ClassNotFoundException 没有找到指定的class
+* InvalidClassException class不匹配，反序列化时，类的字段的变量类型改变了
+  * 为避免class定义导致的不兼容，允许定义特殊变量serialVersionUID静态变量，标示序列化版本。
+  *  ```java
+      public class Person implements Serializable{
+        private static final long serialVersionUID = 27777777777L;
+      }
+     ```
+**反序列化时，由jvm直接构造出对象，不调用构造方法，构造方法内部代码，反序列化时不会调用**
+### Reader
+### Writer
+### PrintStream & PrintWriter
+### Files
 ### 重写（Override） VS 重载（Overload）
   * Override
     * 重写方法不能抛出新的异常或者比被重写方法方法更加宽泛的异常
