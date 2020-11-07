@@ -199,3 +199,7 @@ public class WordCountReducer extends Reducer<Text, IntWritable, Text, IntWritab
     }
 }
 ```
+### shuffle 过程
+https://blog.csdn.net/zpf336/article/details/80931629  
+https://www.cnblogs.com/felixzh/p/4680808.html
+https://blog.csdn.net/YYDU_666/article/details/79465073?utm_medium=distribute.pc_relevant.none-task-blog-BlogCommendFromMachineLearnPai2-2.add_param_isCf&depth_1-utm_source=distribute.pc_relevant.none-task-blog-BlogCommendFromMachineLearnPai2-2.add_param_isCf

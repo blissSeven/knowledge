@@ -114,7 +114,7 @@ f1 f2 f3 f4 f5 program
 * 定义数组
     * `array_name=(value0 value1 value2 value3)`
     * `array_name[0]=value0`
-    * array_name[n]=valuen
+    * `array_name[n]=valuen`
   * 读取数组
     * `valuen=${array_name[n]}`
   * 获得数组长度

@@ -1,0 +1,944 @@
+package com.xiaomi.mico.stats.jobs.actDevice;
+
+import com.xiaomi.mico.stats.common.MailHttpClient;
+import com.xiaomi.mico.stats.util.MRUtil;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.util.GenericOptionsParser;
+import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.regex.Pattern;
+
+public class ActDeviceEmailV2Job {
+    private static final String romVersionTotalCountFile = "/user/h_xiaoqiang/mico/rom_versions_count_v2/date=%s/final/count-r-00000";
+    private static final String deviceAliveCountFile = "/user/h_data_platform/platform/xiaoqiang/mico_active_statistics/date=%s/000000_0";
+    private static final String deviceConnectAliveCountFile = "/user/h_data_platform/platform/xiaoqiang/xdata_router_device_statistics/date=%s";
+    private static final String deviceAliveCountFileOversea = "/user/h_data_platform/platform/xiaoqiang/mico_device_alive_statistics/date=%s/000000_0";
+    private static final String micoStatHardwareFile = "/user/h_data_platform/platform/xiaoqiang/mico_sku/data/000000_0";
+    private static Logger logger = LoggerFactory.getLogger(ActDeviceEmailV2Job.class);
+    private static TreeMap<String, TreeMap<String, DeviceCount>> deviceCountMap = new TreeMap<>();
+    private static HashMap<String, String> hardwareNameMap = MRUtil.hardwareNameMap;
+    private static final int statPeriod = 16;
+    private static String[] dateStr = new String[statPeriod];
+    private static String[] dateNameStr = new String[statPeriod];
+    private static ArrayList<String> hardwareSortList;
+    private static JSONObject micoStatHardware = new JSONObject();
+
+    private static final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMMdd");
+
+    private enum ClustersEnum {
+        ZJY("zjyprc-hadoop", "中经云集群"), AZDE("azdeprc-hadoop", "德国集群"), AZMB("azmbcommonprc-hadoop", "印度集群"),
+        KSMOS("ksmosprc-hadoop", "莫斯科集群"), ALSG("alsgprc-hadoop", "新加坡集群"), AZOR("azorprc-xiaomi", "美西集群");
+        private String clustername;
+        private String desc;
+
+        ClustersEnum(String name, String desc) {
+            this.clustername = name;
+            this.desc = desc;
+        }
+    }
+
+    public static class DeviceCount {
+        public String hardware = "";
+        String name = "";
+        String dateStr = "";
+        Long activeCount = 0L;//总激活
+        Long connectAliveCount = 0L;//连接日活---基础日活
+        Double aliveCount = 0.0;//综合日活
+        Double aliveMonthCount = 0.0;//综合月活
+        Double aliveRate = 0.0;
+        Long activeCountToday = 0L;//昨日激活
+
+        DeviceCount() {
+            this.hardware = "";
+            this.name = "";
+        }
+
+        DeviceCount(String hardware, String name) {
+            this.hardware = hardware;
+            this.name = name;
+        }
+
+        @Override
+        public String toString() {
+            return "DeviceCount{" +
+                    "hardware='" + hardware + '\'' +
+                    ", name='" + name + '\'' +
+                    ", dateStr='" + dateStr + '\'' +
+                    ", activeCount=" + activeCount +
+                    ", connectAliveCount=" + connectAliveCount +
+                    ", aliveCount=" + aliveCount +
+                    ", aliveMonthCount=" + aliveMonthCount +
+                    ", aliveRate=" + aliveRate +
+                    ", activeCountToday=" + activeCountToday +
+                    '}';
+        }
+    }
+
+    public static class Rate {
+        Double rateValue = 0.0;
+        String rateStr = "";
+        String rateColorStr = "color=\"#000000\"";
+    }
+
+    private static String[] emailRecipients = {
+            "mico-activation-data@xiaomi.com"
+    };
+
+    private static String[] testEmailRecipients = {
+            "wangpeng1@xiaomi.com"
+    };
+
+    public static void main(final String[] args) throws Exception {
+        Options options = new Options();
+        // date option
+        Option dateOption = new Option("date", true, "Date of data to process");
+        dateOption.setRequired(false);
+        options.addOption(dateOption);
+        // test option
+        Option testOption = new Option("test", false, "Test");
+        testOption.setRequired(false);
+        options.addOption(testOption);
+        options.addOption(new Option("dl", false, "daily"));
+        options.addOption(new Option("wl", false, "weekly"));
+        // job
+        Configuration conf = new Configuration();
+        GenericOptionsParser parser = new GenericOptionsParser(conf, options, args);
+        CommandLine commandLine = parser.getCommandLine();
+        if (null == commandLine) {
+            System.exit(1);
+        }
+        String date = commandLine.getOptionValue("date");
+        if (StringUtils.isEmpty(date) || date.equals("today")) {
+            date = simpleDateFormat.format(Calendar.getInstance().getTime());
+        }
+        final boolean test = commandLine.hasOption("test");
+        final boolean doDaily = commandLine.getOptionValue("dl", "1").equals("1");
+        final boolean doWeekly = commandLine.getOptionValue("wl", "1").equals("1");
+        final String title = "小爱音箱激活数&综合活跃统计 " + date;
+
+        getDateArray(date);
+        getMicoStatHardware();
+        logger.info("micostatType {}", micoStatHardware.toString());
+        String micoActiveRecentWeek = "";
+        TreeMap<String, String> MicoStatInfo = new TreeMap<>();
+        for (ClustersEnum clustersEnum : ClustersEnum.values()) {
+            deviceCountMap.clear();
+            if (clustersEnum == ClustersEnum.ZJY) {
+                FileSystem fs = FileSystem.get(URI.create("~"), conf);
+                getDeviceActiveCount(fs, date);
+                getDeviceAliveCount(fs, date);
+                getDeviceConnectAliveCount(fs, date);
+                fs.close();
+            } else {
+                String inputPath = String.format(deviceConnectAliveCountFile, date);
+                inputPath = String.format("hdfs://%s%s", clustersEnum.clustername, inputPath);
+                logger.info("raw path {}", inputPath);
+                FileSystem fs2 = FileSystem.get(URI.create(inputPath), conf);
+                getDeviceConnectAliveCount(fs2, date);
+                fs2.close();
+            }
+            if (clustersEnum == ClustersEnum.ALSG) {
+                String inputPath = String.format(deviceAliveCountFileOversea, date);
+                inputPath = String.format("hdfs://%s%s", clustersEnum.clustername, inputPath);
+                logger.info("raw path {}", inputPath);
+                FileSystem fs2 = FileSystem.get(URI.create(inputPath), conf);
+                getDeviceAliveCountOversea(fs2, date);
+                fs2.close();
+            }
+            getTotalCount();
+            getActiveCountToday();
+            Calendar calendar = Calendar.getInstance();
+            Date dateObject = simpleDateFormat.parse(date);
+            calendar.setTime(dateObject);
+            calendar.add(Calendar.DATE, -1);
+            String statDate = simpleDateFormat.format(calendar.getTime());
+            if (deviceCountMap.get(statDate).keySet().size() > 1) {
+                MicoStatInfo.put(clustersEnum.desc, formatTable1(date));
+            }
+            if (clustersEnum == ClustersEnum.ZJY) {
+                micoActiveRecentWeek = formatTable2();
+                if (doWeekly) {
+                    getWeeklyStat(date, test);
+                }
+            }
+        }
+        if (doDaily) {
+            String bodyBuilder = "<p>以下各表中数据为截止到当日凌晨的统计数据：</p>" +
+                    "*基础日活：一天内跟服务器发生过交互的设备数。<br />" +
+                    "*综合日活：一天内跟用户发生过交互的设备数，包括语音交互、按键和App远程控制。<br />" +
+                    "*综合月活：最近30天内跟用户发生过交互的设备数，包括语音交互、按键和App远程控制。<br />" +
+                    "*日活率：综合日活/综合月活。<br /><br />" +
+                    "<h3>音箱激活与活跃</h3>";
+            for (String cluster : MicoStatInfo.keySet()) {
+                bodyBuilder +=
+                        "<h4>" + cluster + "</h4>" +
+                                MicoStatInfo.get(cluster) +
+                                "<br/>" +
+                                "<p></p>";
+            }
+            bodyBuilder += "<h3>近七日激活</h3>" +
+                    micoActiveRecentWeek;
+            MRUtil.sendMail(title, bodyBuilder, test ? testEmailRecipients : emailRecipients);
+            logger.info("send email ok");
+            System.exit(0);
+        }
+    }
+
+    private static void getWeeklyStat(String date, boolean test)
+            throws MailHttpClient.MailSenderException, InterruptedException {
+        Calendar caStatDate = Calendar.getInstance();
+        try {
+            caStatDate.setTime(simpleDateFormat.parse(date));
+        } catch (ParseException ignored) {
+            logger.error("date parse fail: {}", date);
+            return;
+        }
+        caStatDate.add(Calendar.DATE, -1);
+        logger.info("caStatDate {}", caStatDate.getTime());
+        logger.info("caStatDate {}", caStatDate.get(Calendar.DAY_OF_WEEK));
+        if (caStatDate.get(Calendar.DAY_OF_WEEK) != 4) {
+            logger.info("only work on thursday!");
+            return;
+        }
+        String endDate = simpleDateFormat.format(caStatDate.getTime());
+        Calendar caWeekBefore = (Calendar) caStatDate.clone();
+        caWeekBefore.add(Calendar.DATE, -6);
+        String startDate = simpleDateFormat.format(caWeekBefore.getTime());
+        logger.info("startDate: {}, endDate: {}", startDate, endDate);
+        List<DeviceCount> stats = new ArrayList<>();
+        String mergeHardware = "S12";
+        for (String hardware : deviceCountMap.get(startDate).keySet()) {
+            if (!Pattern.compile("[\\w\\d]+").matcher(hardware).matches()) {
+                logger.info("invalid hardware: {}", hardware);
+                continue;
+            }
+            String hv = hardware;
+            if (hv.startsWith(mergeHardware)) {
+                hv = mergeHardware;
+            }
+            DeviceCount hDC = null;
+            for (DeviceCount dc : stats) {
+                if (dc.hardware.equals(hv)) {
+                    hDC = dc;
+                    break;
+                }
+            }
+            if (hDC == null) {
+                hDC = new DeviceCount(hardware, hardwareNameMap.get(hardware));
+                stats.add(hDC);
+            }
+            Calendar calendar = (Calendar) caWeekBefore.clone();
+            for (; calendar.getTimeInMillis() <= caStatDate.getTimeInMillis(); calendar.add(Calendar.DATE, 1)) {
+                String statDate = simpleDateFormat.format(calendar.getTime());
+                if (!deviceCountMap.get(statDate).containsKey(hardware)) {
+                    logger.info("deviceCountMap {} {} un-exist", statDate, hardware);
+                    continue;
+                }
+                DeviceCount dc = deviceCountMap.get(statDate).get(hardware);
+                if (statDate.equals(endDate)) {
+                    hDC.activeCount += dc.activeCount;
+                }
+                hDC.activeCountToday += dc.activeCountToday;
+                hDC.aliveCount += dc.aliveCount;
+                hDC.aliveMonthCount += dc.aliveMonthCount;
+            }
+        }
+        stats.sort((o1, o2) -> o1.activeCount > o2.activeCount ? -1 : 1);
+        StringBuilder bodyBuilder = new StringBuilder();
+        bodyBuilder.append("<p>以下各表中数据为截止到当日凌晨的统计数据：</p>");
+        bodyBuilder.append("<h3>音箱7日激活与活跃</h3>");
+        bodyBuilder.append("<table border=\"1\" cellspacing=\"0\" cellpadding = \"5\">\r\n");
+        bodyBuilder.append("<tr>");
+        bodyBuilder.append("<th bgcolor = \"#979797\">产品名称</th>");
+        bodyBuilder.append("<th bgcolor = \"#979797\">总激活</th>");
+        bodyBuilder.append("<th bgcolor = \"#979797\">总新增</th>");
+        bodyBuilder.append("<th bgcolor = \"#979797\">平均月活</th>");
+        bodyBuilder.append("<th bgcolor = \"#979797\">平均日活</th>");
+        bodyBuilder.append("<th bgcolor = \"#979797\">日活率(日活/月活)</th>");
+        bodyBuilder.append("</tr>\r\n");
+        for (DeviceCount dc : stats) {
+            bodyBuilder.append("<tr>");
+            String name = dc.name + "(" + dc.hardware + ")";
+            if (dc.hardware.equals(mergeHardware)) {
+                name = dc.name;
+            } else if (StringUtils.isBlank(dc.name)) {
+                name = dc.hardware;
+            }
+            bodyBuilder.append(String.format("<td align=\"left\"><font style=\"font-weight:bold;\">%s</font></td>", name));
+            bodyBuilder.append(String.format("<td align=\"left\"><font style=\"font-weight:bold;\">%s</font></td>"
+                    , dc.activeCount));
+            bodyBuilder.append(String.format("<td align=\"left\"><font style=\"font-weight:bold;\">%s</font></td>"
+                    , dc.activeCountToday));
+            bodyBuilder.append(String.format("<td align=\"left\"><font style=\"font-weight:bold;\">%s</font></td>"
+                    , Math.round(dc.aliveMonthCount / 7)));
+            bodyBuilder.append(String.format("<td align=\"left\"><font style=\"font-weight:bold;\">%s</font></td>"
+                    , Math.round(dc.aliveCount / 7)));
+            bodyBuilder.append(String.format("<td align=\"left\"><font style=\"font-weight:bold;\">%s</font></td>"
+                    , (dc.aliveMonthCount == 0 ? "0.0"
+                            : String.format("%.2f", ((dc.aliveCount / 7) / (dc.aliveMonthCount / 7)) * 100)) + "%"));
+            bodyBuilder.append("<tr/>\r\n");
+        }
+
+        String title = "7日音箱激活与活跃 " + date;
+        MRUtil.sendMail(title, bodyBuilder.toString(), test ? testEmailRecipients : emailRecipients);
+    }
+
+    private static void getActiveCountToday() {
+        for (String dateStr1 : dateStr) {
+            logger.info("dateStr is {}", dateStr1);
+        }
+        for (String hardware : deviceCountMap.get(dateStr[0]).keySet()) {
+            for (int i = 0; i < 15; i++) {
+                DeviceCount deviceCount = deviceCountMap.get(dateStr[i]).getOrDefault(hardware, new DeviceCount(hardware, hardware));
+                TreeMap<String, DeviceCount> deviceTreeMap = deviceCountMap.computeIfAbsent(dateStr[i], k -> new TreeMap<>());
+                TreeMap<String, DeviceCount> deviceTreeMapPrev = deviceCountMap.computeIfAbsent(dateStr[i + 1], k -> new TreeMap<>());
+                deviceCount.activeCountToday = deviceTreeMap.getOrDefault(hardware,
+                        new DeviceCount(hardware, hardware)).activeCount -
+                        deviceTreeMapPrev.getOrDefault(hardware, new DeviceCount(hardware, hardware)).activeCount;
+            }
+        }
+    }
+
+    private static void getDateArray(String date) throws Exception {
+        Calendar calendar = Calendar.getInstance();
+        SimpleDateFormat simpleDateFormat1 = new SimpleDateFormat("M月d日");
+        Date dateObject = simpleDateFormat.parse(date);
+        calendar.setTime(dateObject);
+        calendar.add(Calendar.DATE, -1);
+        for (int i = 0; i < statPeriod; i++) {
+            dateStr[i] = simpleDateFormat.format(calendar.getTime());
+            dateNameStr[i] = simpleDateFormat1.format(calendar.getTime());
+            calendar.add(Calendar.DATE, -1);
+        }
+    }
+
+    private static String formatTable2() throws Exception {
+        NumberFormat numberFormat = NumberFormat.getNumberInstance();
+        StringBuilder tableBuilder = new StringBuilder();
+        tableBuilder.append("<table border=\"1\" cellspacing=\"0\" cellpadding = \"5\">\r\n");
+        tableBuilder.append("<tr>");
+        tableBuilder.append("<th bgcolor = \"#979797\">时间</th>");
+        for (int i = 0; i < 7; i++) {
+            tableBuilder.append(String.format("<th bgcolor = \"#979797\">%s</th>", dateNameStr[i]));
+        }
+        tableBuilder.append(String.format("<th bgcolor = \"#979797\">%s</th>", "7日合计"));
+        tableBuilder.append("</tr>\r\n");
+        tableBuilder.append("<tr>");
+        tableBuilder.append(String.format("<td align=\"left\"><font style=\"font-weight:bold;\">%s</font></td>", "合计"));
+        long sum = 0L;
+        for (int i = 0; i < 7; i++) {
+            DeviceCount deviceCount = deviceCountMap.get(dateStr[i]).get("all");
+            DeviceCount deviceCountPre = deviceCountMap.get(dateStr[i + 1]).get("all");
+            Rate rate = getRateStr(deviceCount.activeCountToday, deviceCountPre.activeCountToday);
+            sum = sum + deviceCount.activeCountToday;
+            if (rate.rateValue > 0) {
+                tableBuilder.append(String.format("<td align=\"right\"><font style=\"font-weight:bold;\" color=\"red\">%s<br/>%s</font></td>",
+                        numberFormat.format(deviceCount.activeCountToday),
+                        rate.rateStr));
+            } else if (rate.rateValue < 0) {
+                tableBuilder.append(String.format("<td align=\"right\"><font style=\"font-weight:bold;\" color=\"green\">%s<br/>%s</font></td>",
+                        numberFormat.format(deviceCount.activeCountToday),
+                        rate.rateStr));
+            } else {
+                tableBuilder.append(String.format("<td align=\"right\"><font style=\"font-weight:bold;\">%s<br/>%s</font></td>",
+                        numberFormat.format(deviceCount.activeCountToday),
+                        rate.rateStr));
+            }
+        }
+        tableBuilder.append(String.format("<td align=\"right\"><font style=\"font-weight:bold;\">%s</font></td>",
+                numberFormat.format(sum)));
+        tableBuilder.append("</tr>");
+
+        int j = 0;
+        for (String hardware : hardwareSortList) {
+            if (StringUtils.equals(hardware, "all")) {
+                continue;
+            }
+            tableBuilder.append("<tr>");
+            String name;
+            if (!StringUtils.equals(deviceCountMap.get(dateStr[0]).get(hardware).name,
+                    deviceCountMap.get(dateStr[0]).get(hardware).hardware)) {
+                name = deviceCountMap.get(dateStr[0]).get(hardware).name + "(" +
+                        deviceCountMap.get(dateStr[0]).get(hardware).hardware + ")";
+            } else {
+                name = deviceCountMap.get(dateStr[0]).get(hardware).name;
+            }
+            if (j % 2 == 0) {
+                tableBuilder.append(String.format("<td bgcolor=\"#F5F5F6\" align=\"left\">%s</td>", name));
+            } else {
+                tableBuilder.append(String.format("<td align=\"left\">%s</td>", name));
+            }
+            sum = 0;
+            for (int i = 0; i < 7; i++) {
+                DeviceCount deviceCount = deviceCountMap.get(dateStr[i]).getOrDefault(hardware, new DeviceCount(hardware, hardware));
+                DeviceCount deviceCountPre = deviceCountMap.get(dateStr[i + 1]).getOrDefault(hardware,
+                        new DeviceCount(hardware, hardware));
+                Rate rate = getRateStr(deviceCount.activeCountToday, deviceCountPre.activeCountToday);
+                sum = sum + deviceCount.activeCountToday;
+                if (j % 2 == 0) {
+                    if (rate.rateValue > 0) {
+                        tableBuilder.append(String.format("<td bgcolor=\"#F5F5F6\" align=\"right\">%s<br/><font color=\"red\">%s</font></td>",
+                                numberFormat.format(deviceCountMap.get(dateStr[i]).getOrDefault(hardware,
+                                        new DeviceCount(hardware, hardware)).activeCountToday),
+                                rate.rateStr));
+                    } else if (rate.rateValue < 0) {
+                        tableBuilder.append(String.format("<td bgcolor=\"#F5F5F6\" align=\"right\">%s<br/><font color=\"green\">%s</font></td>",
+                                numberFormat.format(deviceCountMap.get(dateStr[i]).
+                                        getOrDefault(hardware, new DeviceCount(hardware, hardware)).activeCountToday),
+                                rate.rateStr));
+                    } else {
+                        tableBuilder.append(String.format("<td bgcolor=\"#F5F5F6\" align=\"right\">%s<br/>%s</td>",
+                                numberFormat.format(deviceCountMap.get(dateStr[i]).getOrDefault(hardware,
+                                        new DeviceCount(hardware, hardware)).activeCountToday),
+                                rate.rateStr));
+                    }
+                } else {
+                    if (rate.rateValue > 0) {
+                        tableBuilder.append(String.format("<td align=\"right\">%s<br/><font color=\"red\">%s</font></td>",
+                                numberFormat.format(deviceCountMap.get(dateStr[i]).getOrDefault(hardware,
+                                        new DeviceCount(hardware, hardware)).activeCountToday),
+                                rate.rateStr));
+                    } else if (rate.rateValue < 0) {
+                        tableBuilder.append(String.format("<td align=\"right\">%s<br/><font color=\"green\">%s</font></td>",
+                                numberFormat.format(deviceCountMap.get(dateStr[i]).getOrDefault(hardware,
+                                        new DeviceCount(hardware, hardware)).activeCountToday),
+                                rate.rateStr));
+                    } else {
+                        tableBuilder.append(String.format("<td align=\"right\">%s<br/>%s</td>",
+                                numberFormat.format(deviceCountMap.get(dateStr[i]).getOrDefault(hardware,
+                                        new DeviceCount(hardware, hardware)).activeCountToday),
+                                rate.rateStr));
+                    }
+                }
+            }
+            if (j % 2 == 0) {
+                tableBuilder.append(String.format("<td bgcolor=\"#F5F5F6\" align=\"right\">%s</td>",
+                        numberFormat.format(sum)));
+            } else {
+                tableBuilder.append(String.format("<td align=\"right\">%s</td>",
+                        numberFormat.format(sum)));
+            }
+
+            tableBuilder.append("</tr>");
+            j++;
+        }
+        tableBuilder.append("</table>");
+
+        return tableBuilder.toString();
+    }
+
+    private static String formatTable1(String date) throws Exception {
+        Calendar calendar = Calendar.getInstance();
+        Date dateObject = simpleDateFormat.parse(date);
+        calendar.setTime(dateObject);
+        calendar.add(Calendar.DATE, -1);
+        date = simpleDateFormat.format(calendar.getTime());
+
+        Calendar caPreMonthLast = (Calendar) calendar.clone();
+        caPreMonthLast.set(Calendar.DAY_OF_MONTH, 1);
+        caPreMonthLast.add(Calendar.DATE, -1);
+        String datePreMonthLast = simpleDateFormat.format(caPreMonthLast.getTime());
+        calendar.add(Calendar.DATE, -1);
+        String datePre = simpleDateFormat.format(calendar.getTime());
+        calendar.add(Calendar.DATE, -1);
+
+        Map<String, DeviceCount> deviceDateCountMap = deviceCountMap.get(date);
+        Map<String, DeviceCount> deviceDateCountMapPre = deviceCountMap.get(datePre);
+        Map<String, DeviceCount> deviceDateCountMapPreWeek = deviceCountMap.get(dateStr[7]);
+//        Map<String, DeviceCount> deviceDateCountMapPreMonthLast = deviceCountMap.get(datePreMonthLast);
+        Map<String, DeviceCount> deviceDateCountMapPreMonthLast = deviceCountMap.computeIfAbsent(datePreMonthLast, k -> new TreeMap<>());
+        logger.info("datePreMonthLast: {}", datePreMonthLast);
+        StringBuilder tableBuilder = new StringBuilder();
+        Rate rate, rateWeek;
+        NumberFormat numberFormat = NumberFormat.getNumberInstance();
+        DecimalFormat df = new DecimalFormat("#0.00");
+        List<Map.Entry<String, DeviceCount>> deviceCountDateList =
+                new ArrayList<>(deviceDateCountMap.entrySet());
+        deviceCountDateList.sort((o1, o2) -> {
+            long activeCountToday1 = o1.getValue().activeCountToday;
+            long activeCountToday2 = o2.getValue().activeCountToday;
+            if (activeCountToday1 > activeCountToday2) {
+                return -1;
+            } else if (activeCountToday1 < activeCountToday2) {
+                return 1;
+            } else {
+                return 0;
+            }
+        });
+        ArrayList<String> hardwareSortListTemp = new ArrayList<>();
+        TreeMap<String, Long> monthTotalCount = new TreeMap<>();
+        int i = 0;
+        for (Map.Entry<String, DeviceCount> deviceCountEntry : deviceCountDateList) {
+            if (StringUtils.equals(deviceCountEntry.getKey(), "all")) {
+                continue;
+            }
+            hardwareSortListTemp.add(deviceCountEntry.getKey());
+            DeviceCount deviceCountType = deviceCountEntry.getValue();
+            DeviceCount deviceCountTypePre = deviceCountMap.get(dateStr[1]).getOrDefault(deviceCountType.hardware,
+                    new DeviceCount(deviceCountType.hardware, deviceCountType.hardware));
+            DeviceCount deviceCountTypePreWeek = deviceCountMap.get(dateStr[7]).getOrDefault(deviceCountType.hardware,
+                    new DeviceCount(deviceCountType.hardware, deviceCountType.hardware));
+            tableBuilder.append("<tr>");
+            String bgColor = " bgcolor=\"#FFFFFF\" ";
+            if (i % 2 == 0) {
+                bgColor = " bgcolor=\"#F5F5F6\" ";
+            }
+
+            String name = deviceCountType.name;
+            if (!StringUtils.equals(deviceCountType.name, deviceCountType.hardware)) {
+                name = deviceCountType.name + "(" + deviceCountType.hardware + ")";
+            }
+//                总激活
+            tableBuilder.append(String.format("<td" + bgColor + "align=\"left\">%s</td>", name));
+            rate = getRateStr(deviceCountType.activeCount, deviceCountTypePre.activeCount);
+            rateWeek = getRateStrWeek(deviceCountType.activeCount, deviceCountTypePreWeek.activeCount);
+            tableBuilder.append(String.format("<td" + bgColor + "align=\"right\"><font " + rate.rateColorStr +
+                            " >%s<br/>%s</font><br/>" +
+                            "<font " + rateWeek.rateColorStr + " >%s</font></td>",
+                    numberFormat.format(deviceCountType.activeCount), rate.rateStr, rateWeek.rateStr));
+//                昨日激活
+            rate = getRateStr(deviceCountType.activeCountToday, deviceCountTypePre.activeCountToday);
+            rateWeek = getRateStrWeek(deviceCountType.activeCountToday, deviceCountTypePreWeek.activeCountToday);
+            tableBuilder.append(String.format("<td" + bgColor + "align=\"right\"><font " + rate.rateColorStr +
+                            " >%s<br/>%s</font><br/>" +
+                            "<font " + rateWeek.rateColorStr + " >%s</font></td>",
+                    numberFormat.format(deviceCountType.activeCountToday), rate.rateStr, rateWeek.rateStr));
+//                本月累计总激活
+            long monthNew = deviceCountType.activeCount - deviceDateCountMapPreMonthLast.getOrDefault(deviceCountType.hardware,
+                    new DeviceCount(deviceCountType.hardware, deviceCountType.hardware)).activeCount;
+            tableBuilder.append(String.format("<td" + bgColor + "align=\"right\">%s</td>", numberFormat.format(monthNew)));
+
+            if (!StringUtils.startsWith(deviceCountType.hardware, "T")) {
+//                基础日活
+                rate = getRateStr(deviceCountType.connectAliveCount, deviceCountTypePre.connectAliveCount);
+                rateWeek = getRateStrWeek(deviceCountType.connectAliveCount, deviceCountTypePreWeek.connectAliveCount);
+                tableBuilder.append(String.format("<td" + bgColor + "align=\"right\"><font " + rate.rateColorStr +
+                                " >%s<br/>%s</font><br/>" +
+                                "<font " + rateWeek.rateColorStr + " >%s</font></td>",
+                        numberFormat.format(deviceCountType.connectAliveCount), rate.rateStr, rateWeek.rateStr));
+//                综合日活
+                rate = getRateStr(deviceCountType.aliveCount, deviceCountTypePre.aliveCount);
+                rateWeek = getRateStrWeek(deviceCountType.aliveCount, deviceCountTypePreWeek.aliveCount);
+                tableBuilder.append(String.format("<td" + bgColor + "align=\"right\"><font " + rate.rateColorStr +
+                                " >%s<br/>%s</font><br/>" +
+                                "<font " + rateWeek.rateColorStr + " >%s</font></td>",
+                        numberFormat.format(deviceCountType.aliveCount), rate.rateStr, rateWeek.rateStr));
+//                日活率
+                rate = getRateStr(deviceCountType.aliveRate, deviceCountTypePre.aliveRate);
+                rateWeek = getRateStrWeek(deviceCountType.aliveRate, deviceCountTypePreWeek.aliveRate);
+                tableBuilder.append(String.format("<td" + bgColor + "align=\"right\"><font " + rate.rateColorStr +
+                                " >%s%%<br/>%s</font><br/>" +
+                                "<font " + rateWeek.rateColorStr + " >%s</font></td>",
+                        df.format(deviceCountType.aliveRate), rate.rateStr, rateWeek.rateStr));
+            } else {
+                tableBuilder.append(String.format("<td" + bgColor + "align=\"right\">%s</td>", ""));
+                tableBuilder.append(String.format("<td" + bgColor + "align=\"right\">%s</td>", ""));
+                tableBuilder.append(String.format("<td" + bgColor + "align=\"right\">%s</td>", ""));
+            }
+            i++;
+        }
+        tableBuilder.append("</table>");
+
+        StringBuilder tableHBuilder = new StringBuilder();
+        tableHBuilder.append("<table border=\"1\" cellspacing=\"0\" cellpadding = \"5\">\r\n");
+        tableHBuilder.append("<tr>");
+        tableHBuilder.append("<th bgcolor = \"#979797\">产品名称</th>");
+        tableHBuilder.append("<th bgcolor = \"#979797\">总激活</th>");
+        tableHBuilder.append("<th bgcolor = \"#979797\">昨日激活</th>");
+        tableHBuilder.append("<th bgcolor = \"#979797\">本月累计总激活</th>");
+        tableHBuilder.append("<th bgcolor = \"#979797\">基础日活</th>");
+        tableHBuilder.append("<th bgcolor = \"#979797\">综合日活</th>");
+        tableHBuilder.append("<th bgcolor = \"#979797\">日活率(日活/月活)</th>");
+        tableHBuilder.append("</tr>\r\n");
+
+        DeviceCount deviceCountAll = deviceDateCountMap.get("all");
+        DeviceCount deviceCountAllPre = deviceDateCountMapPre.get("all");
+        DeviceCount deviceCountAllPreWeek = deviceDateCountMapPreWeek.get("all");
+//        DeviceCount deviceCountAllPreMonthLast = deviceDateCountMapPreMonthLast.get("all");
+        DeviceCount deviceCountAllPreMonthLast = deviceDateCountMapPreMonthLast.computeIfAbsent("all", k -> new DeviceCount("all", "all"));
+        tableHBuilder.append("<tr>");
+        tableHBuilder.append(String.format("<td align=\"left\"><font style=\"font-weight:bold;\">%s</font></td>", deviceCountAll.name));
+        rate = getRateStr(deviceCountAll.activeCount, deviceCountAllPre.activeCount);
+        rateWeek = getRateStrWeek(deviceCountAll.activeCount, deviceCountAllPreWeek.activeCount);
+        tableHBuilder.append(String.format("<td align=\"right\"><font " + rate.rateColorStr + " style=\"font-weight:bold;\">%s<br/>%s</font><br/>" +
+                        "<font " + rateWeek.rateColorStr + " style=\"font-weight:bold;\">%s</font></td>",
+                numberFormat.format(deviceCountAll.activeCount), rate.rateStr, rateWeek.rateStr));
+
+        rate = getRateStr(deviceCountAll.activeCountToday, deviceCountAllPre.activeCountToday);
+        rateWeek = getRateStrWeek(deviceCountAll.activeCountToday, deviceCountAllPreWeek.activeCountToday);
+        tableHBuilder.append(String.format("<td align=\"right\"><font " + rate.rateColorStr + " style=\"font-weight:bold;\">%s<br/>%s</font><br/>" +
+                        "<font " + rateWeek.rateColorStr + " style=\"font-weight:bold;\">%s</font></td>",
+                numberFormat.format(deviceCountAll.activeCountToday), rate.rateStr, rateWeek.rateStr));
+
+        tableHBuilder.append(String.format("<td align=\"right\">%s</td>",
+                numberFormat.format(deviceCountAll.activeCount - deviceCountAllPreMonthLast.activeCount)));
+
+        rate = getRateStr(deviceCountAll.connectAliveCount, deviceCountAllPre.connectAliveCount);
+        rateWeek = getRateStrWeek(deviceCountAll.connectAliveCount, deviceCountAllPreWeek.connectAliveCount);
+        tableHBuilder.append(String.format("<td align=\"right\"><font " + rate.rateColorStr + " style=\"font-weight:bold;\">%s<br/>%s</font><br/>" +
+                        "<font " + rateWeek.rateColorStr + " style=\"font-weight:bold;\">%s</font></td>",
+                numberFormat.format(deviceCountAll.connectAliveCount), rate.rateStr, rateWeek.rateStr));
+
+        rate = getRateStr(deviceCountAll.aliveCount, deviceCountAllPre.aliveCount);
+        rateWeek = getRateStrWeek(deviceCountAll.aliveCount, deviceCountAllPreWeek.aliveCount);
+        tableHBuilder.append(String.format("<td align=\"right\"><font " + rate.rateColorStr + " style=\"font-weight:bold;\">%s<br/>%s</font><br/>" +
+                        "<font " + rateWeek.rateColorStr + " style=\"font-weight:bold;\">%s</font></td>",
+                numberFormat.format(deviceCountAll.aliveCount), rate.rateStr, rateWeek.rateStr));
+
+        rate = getRateStr(deviceCountAll.aliveRate, deviceCountAllPre.aliveRate);
+        rateWeek = getRateStrWeek(deviceCountAll.aliveRate, deviceCountAllPreWeek.aliveRate);
+        tableHBuilder.append(String.format("<td align=\"right\"><font " + rate.rateColorStr + " style=\"font-weight:bold;\">%s%%<br/>%s</font><br/>" +
+                        "<font " + rateWeek.rateColorStr + " style=\"font-weight:bold;\">%s</font></td>",
+                df.format(deviceCountAll.aliveRate), rate.rateStr, rateWeek.rateStr));
+        hardwareSortList = hardwareSortListTemp;
+        return tableHBuilder.toString() + tableBuilder.toString();
+
+    }
+
+    private static boolean isDigit(double value) {
+        double eps = 1e-6;
+        if (value - (int) value < eps) {
+            return false;
+        }
+        return true;
+    }
+
+    private static Rate getRateStrWithName(double value, double valuePre, String rateName) {
+        DecimalFormat df = new DecimalFormat("#0.00");
+        NumberFormat numberFormat = NumberFormat.getNumberInstance();
+        String rateValueStr = "";
+        Rate rate = new Rate();
+        if (value == valuePre) {
+            rate.rateValue = 0.0;
+            rate.rateStr = "(" + rateName + " 0)";
+        } else {
+            rate.rateValue = (value - valuePre);
+            if (isDigit(rate.rateValue)) {
+                rateValueStr = df.format(rate.rateValue);
+            } else {
+                rateValueStr = numberFormat.format(rate.rateValue);
+            }
+            if (rate.rateValue > 0) {
+                rate.rateStr = "(" + rateName + "+" + rateValueStr + ")";
+                rate.rateColorStr = "color=\"red\"";
+            } else {
+                rate.rateStr = "(" + rateName + rateValueStr + ")";
+                rate.rateColorStr = "color=\"green\"";
+            }
+        }
+        return rate;
+    }
+
+    private static Rate getRateStr(double value, double valuePre) {
+        return getRateStrWithName(value, valuePre, "日环比");
+    }
+
+    private static Rate getRateStrWeek(double value, double valuePre) {
+        return getRateStrWithName(value, valuePre, "周同比");
+    }
+
+    private static void getTotalCount() {
+        for (String date : deviceCountMap.keySet()) {
+            Map<String, DeviceCount> deviceDateCountMap = deviceCountMap.get(date);
+            DeviceCount deviceCount = new DeviceCount();
+            deviceCount.hardware = "all";
+            deviceCount.dateStr = date;
+            deviceCount.name = "合计";
+            for (String hardware : deviceDateCountMap.keySet()) {
+                DeviceCount deviceCount1 = deviceDateCountMap.get(hardware);
+                deviceCount.activeCount = deviceCount1.activeCount + deviceCount.activeCount;
+                deviceCount.connectAliveCount = deviceCount1.connectAliveCount + deviceCount.connectAliveCount;
+                deviceCount.aliveCount = deviceCount1.aliveCount + deviceCount.aliveCount;
+                deviceCount.aliveMonthCount = deviceCount1.aliveMonthCount + deviceCount.aliveMonthCount;
+            }
+            if (deviceCount.aliveMonthCount != 0) {
+                deviceCount.aliveRate = deviceCount.aliveCount / deviceCount.aliveMonthCount * 100;
+            } else {
+                deviceCount.aliveRate = 0.0;
+            }
+            deviceDateCountMap.put("all", deviceCount);
+        }
+    }
+
+    private static void getDeviceActiveCount(FileSystem fs, String date) throws ParseException {
+        Calendar calendar = Calendar.getInstance();
+        Date dateObject = simpleDateFormat.parse(date);
+        calendar.setTime(dateObject);
+        Calendar calendarPre = (Calendar) calendar.clone();
+        calendarPre.add(Calendar.DATE, -1);
+        String datePre = simpleDateFormat.format(calendarPre.getTime());
+        for (int i = 1; i <= statPeriod; i++) {
+            doGetDeviceActiveCount(fs, date, datePre);
+            calendar.add(Calendar.DATE, -1);
+            date = simpleDateFormat.format(calendar.getTime());
+            calendarPre.add(Calendar.DATE, -1);
+            datePre = simpleDateFormat.format(calendarPre.getTime());
+        }
+        Calendar caMonthFirst = (Calendar) calendar.clone();
+        caMonthFirst.set(Calendar.DAY_OF_MONTH, 1);
+        date = simpleDateFormat.format(caMonthFirst.getTime());
+        caMonthFirst.add(Calendar.DATE, -1);
+        datePre = simpleDateFormat.format(caMonthFirst.getTime());
+        if (!deviceCountMap.containsKey(datePre)) {
+            doGetDeviceActiveCount(fs, date, datePre);
+        }
+    }
+
+    private static void doGetDeviceActiveCount(FileSystem fs, String date, String datePre) {
+        String path = "";
+        try {
+            path = String.format(romVersionTotalCountFile, date);
+            if (!fs.exists(new Path(path))) {
+                throw new IOException(String.format("File %s un-exist", path));
+            }
+            FSDataInputStream in = fs.open(new Path(path));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+            String line;
+            TreeMap<String, DeviceCount> deviceTreeMap = deviceCountMap.computeIfAbsent(datePre, k -> new TreeMap<>());
+            while ((line = reader.readLine()) != null) {
+                String[] splits = StringUtils.splitPreserveAllTokens(line, "\t");
+                if (splits.length < 2) {
+                    logger.warn("Bad line: " + line);
+                    continue;
+                }
+                String hardware = StringUtils.trimToEmpty(splits[0]);
+                long activeCount = Long.parseLong(StringUtils.trimToEmpty(splits[1]));
+                DeviceCount deviceCount = deviceTreeMap.computeIfAbsent(hardware, k -> new DeviceCount());
+                deviceCount.hardware = hardware;
+                deviceCount.activeCount = activeCount;
+                deviceCount.dateStr = datePre;
+                deviceCount.name = hardwareNameMap.getOrDefault(hardware, hardware);
+            }
+        } catch (IOException e) {
+            logger.warn("Fail to get file path: {}", path, e);
+        }
+    }
+
+    private static void getDeviceConnectAliveCount(FileSystem fs, String date) throws IOException, ParseException {
+        Calendar calendar = Calendar.getInstance();
+        Date dateObject = simpleDateFormat.parse(date);
+        calendar.setTime(dateObject);
+        calendar.add(Calendar.DATE, -1);
+        date = simpleDateFormat.format(calendar.getTime());
+
+        String path = "";
+        for (int i = 1; i <= statPeriod; i++) {
+            try {
+                path = String.format(deviceConnectAliveCountFile, date);
+                if (!fs.exists(new Path(path))) {
+                    throw new IOException(String.format("File %s un-exist", path));
+                }
+                RemoteIterator<LocatedFileStatus> files = fs.listFiles(new Path(path), true);
+                while (files.hasNext()) {
+                    LocatedFileStatus fileStatus = files.next();
+                    if (!fileStatus.isFile() || fileStatus.getLen() == 0) {
+                        continue;
+                    }
+                    FSDataInputStream in = fs.open(fileStatus.getPath());
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+                    String line;
+                    TreeMap<String, DeviceCount> deviceTreeMap = deviceCountMap.computeIfAbsent(date, k -> new TreeMap<>());
+                    while ((line = reader.readLine()) != null) {
+                        String[] splits = StringUtils.splitPreserveAllTokens(line, "\t");
+                        if (splits.length < 6) {
+                            logger.warn("Bad line: " + line);
+                            continue;
+                        }
+                        String source = StringUtils.trimToEmpty(splits[1]);
+                        String hardware = StringUtils.trimToEmpty(splits[2]).toUpperCase();
+                        String version = StringUtils.trimToEmpty(splits[3]);
+                        String statKey = StringUtils.trimToEmpty(splits[4]);
+                        Long value = Long.parseLong(StringUtils.trimToEmpty(splits[5]));
+                        DeviceCount deviceCount = deviceTreeMap.get(hardware);
+                        if (hardware.equals("X04G") || hardware.equals("L09G") || micoStatHardware.has(hardware)) {
+                            if (deviceCount == null) {
+                                deviceCount = deviceTreeMap.computeIfAbsent(hardware, k -> new DeviceCount(hardware, hardware));
+                                deviceCount.dateStr = date;
+                                deviceCount.hardware = hardware;
+                                deviceCount.name = hardwareNameMap.getOrDefault(hardware, hardware);
+                            }
+                            if (statKey.equals("new") && source.equals("rom")) {
+                                deviceCount.activeCountToday = value;
+                            }
+                            if (statKey.equals("total") && source.equals("rom")) {
+                                deviceCount.activeCount = value;
+                            }
+                        }
+//                        if (!statKey.equals("active") || StringUtils.isBlank(version)) {
+//                            continue;
+//                        }
+                        if (deviceCount == null) {
+                            continue;
+                        }
+                        if (statKey.equals("active")) {
+                            if (!StringUtils.isBlank(version)) {
+                                //不同version累加
+                                deviceCount.connectAliveCount += value;
+                            } else {
+//                                其他音箱 version为空即为总和
+                                if (micoStatHardware.has(hardware)) {
+                                    deviceCount.connectAliveCount = value;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                logger.warn("Fail to get file path:{}", path, e);
+            }
+            calendar.add(Calendar.DATE, -1);
+            date = simpleDateFormat.format(calendar.getTime());
+        }//for
+    }
+
+    private static void getDeviceAliveCount(FileSystem fs, String date) throws Exception {
+        Calendar calendar = Calendar.getInstance();
+        Date dateObject = simpleDateFormat.parse(date);
+        calendar.setTime(dateObject);
+        calendar.add(Calendar.DATE, -1);
+        date = simpleDateFormat.format(calendar.getTime());
+        String path = "";
+        for (int i = 1; i <= statPeriod; i++) {
+            try {
+                path = String.format(deviceAliveCountFile, date);
+                if (!fs.exists(new Path(path))) {
+                    throw new Exception(String.format("File %s un-exist", path));
+                }
+                FSDataInputStream in = fs.open(new Path(path));
+                BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+                String line;
+                TreeMap<String, DeviceCount> deviceTreeMap = deviceCountMap.computeIfAbsent(date, k -> new TreeMap<>());
+                while ((line = reader.readLine()) != null) {
+                    String[] splits = StringUtils.splitPreserveAllTokens(line, "\t");
+                    if (splits.length < 4) {
+                        logger.warn("Bad line: " + line);
+                        continue;
+                    }
+                    String hardware = StringUtils.trimToEmpty(splits[0]);
+                    String type = StringUtils.trimToEmpty(splits[1]);
+                    if (StringUtils.equals(hardware, "user")) {
+                        continue;
+                    }
+                    Double value = Double.parseDouble(StringUtils.trimToEmpty(splits[2]));
+                    DeviceCount deviceCount = deviceTreeMap.computeIfAbsent(hardware, k -> new DeviceCount());
+                    deviceCount.hardware = hardware;
+                    deviceCount.dateStr = date;
+                    deviceCount.name = hardwareNameMap.getOrDefault(hardware, hardware);
+                    if (StringUtils.equals(type, "综合活跃总数")) {
+                        deviceCount.aliveCount = value;
+                    } else if (StringUtils.equals(type, "综合月度活跃总数")) {
+                        deviceCount.aliveMonthCount = value;
+                    } else if (StringUtils.equals(type, "日活/月活(%)")) {
+                        deviceCount.aliveRate = value;
+                    }
+                }
+            } catch (IOException e) {
+                logger.warn("Fail to get file path:{}", path, e);
+            }
+            calendar.add(Calendar.DATE, -1);
+            date = simpleDateFormat.format(calendar.getTime());
+        }
+    }
+
+    private static void getDeviceAliveCountOversea(FileSystem fs, String date) throws IOException, ParseException {
+        Calendar calendar = Calendar.getInstance();
+        Date dateObject = simpleDateFormat.parse(date);
+        calendar.setTime(dateObject);
+        calendar.add(Calendar.DATE, -1);
+        date = simpleDateFormat.format(calendar.getTime());
+        String path = "";
+        for (int i = 1; i <= statPeriod; i++) {
+            try {
+                path = String.format(deviceAliveCountFileOversea, date);
+                if (!fs.exists(new Path(path))) {
+                    throw new IOException(String.format("File %s un-exist", path));
+                }
+                FSDataInputStream in = fs.open(new Path(path));
+                BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+                String line;
+                TreeMap<String, DeviceCount> deviceTreeMap = deviceCountMap.computeIfAbsent(date, k -> new TreeMap<>());
+                while ((line = reader.readLine()) != null) {
+                    String[] splits = StringUtils.splitPreserveAllTokens(line, "\t");
+                    if (splits.length < 5) {
+                        logger.warn("Bad line: " + line);
+                        continue;
+                    }
+                    String hardware = StringUtils.trimToEmpty(splits[1]);
+                    String statType = StringUtils.trimToEmpty(splits[3]);
+                    String count = StringUtils.trimToEmpty(splits[4]);
+                    DeviceCount deviceCount = deviceTreeMap.computeIfAbsent(hardware, k -> new DeviceCount());
+                    deviceCount.hardware = hardware;
+                    deviceCount.dateStr = date;
+                    deviceCount.name = hardwareNameMap.getOrDefault(hardware, hardware);
+                    if (statType.equals("alive")) {
+                        deviceCount.aliveCount = Double.valueOf(count);
+                    } else if (statType.equals("monthly_alive")) {
+                        deviceCount.aliveMonthCount = Double.valueOf(count);
+                    }
+                    if (deviceCount.aliveMonthCount != 0) {
+                        deviceCount.aliveRate = deviceCount.aliveCount / deviceCount.aliveMonthCount;
+                    }
+                }//while
+            } catch (IOException e) {
+                logger.warn("Fail to get file path:{}", path, e);
+            }
+            calendar.add(Calendar.DATE, -1);
+            date = simpleDateFormat.format(calendar.getTime());
+        }//for
+    }
+
+    private static void getMicoStatHardware() {
+        Configuration conf = new Configuration();
+        String inputPath = micoStatHardwareFile;
+        inputPath = String.format("hdfs://%s%s", ClustersEnum.ALSG.clustername, inputPath);
+        try {
+            FileSystem fs = FileSystem.get(URI.create(inputPath), conf);
+            if (!fs.exists(new Path(inputPath))) {
+                throw new IOException(String.format("File %s un-exist", inputPath));
+            }
+            FSDataInputStream in = fs.open(new Path(inputPath));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] splits = StringUtils.splitPreserveAllTokens(line, "\t");
+                if (splits.length < 2) {
+                    logger.warn("Bad line: " + line);
+                    continue;
+                }
+                int platform = Integer.parseInt(splits[0]);
+                String hardware = StringUtils.trimToEmpty(splits[1]);
+                micoStatHardware.put(hardware, platform);
+            }
+            fs.close();
+        } catch (IOException e) {
+            logger.warn("Fail to get file path:{}", inputPath, e);
+        }
+
+    }
+}

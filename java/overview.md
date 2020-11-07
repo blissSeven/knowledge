@@ -105,9 +105,24 @@
       - [序列化](#序列化-1)
       - [反序列化](#反序列化)
     - [Reader](#reader)
+      - [FileReader](#filereader)
+      - [CharArrayReader](#chararrayreader)
+      - [StringReader](#stringreader)
     - [Writer](#writer)
+      - [FileWriter](#filewriter)
+      - [CharArrayWriter](#chararraywriter)
+      - [StringWriter](#stringwriter)
     - [PrintStream & PrintWriter](#printstream--printwriter)
     - [Files](#files)
+  - [日期与时间](#日期与时间)
+    - [Date & Calendar](#date--calendar)
+      - [Date](#date)
+      - [Calendar](#calendar)
+      - [TimeZone](#timezone)
+    - [LocalDateTime](#localdatetime)
+      - [ZonedDateTime](#zoneddatetime)
+      - [DateTimeFormatter](#datetimeformatter)
+      - [Instant](#instant)
     - [重写（Override） VS 重载（Overload）](#重写override-vs-重载overload)
 ## 语法  
 ### 基础
@@ -1978,7 +1993,8 @@ try (InputStream input = new FileInputStream("input.txt");
 }
 ```
 ### Filter模式
-1个“基础”组件再叠加各种“附加”功能组件的模式，称之为Filter模式（或者装饰器模式：Decorator），可以在运行期间动态增加功能。
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/07/11-55-30-7ecacae4b3c6cdf1939ee1427b1028cb-20201107115530-dd06bc.png)    
+1个“基础”组件再叠加各种“附加”功能组件的模式，称之为Filter模式（或者装饰器模式：Decorator），可以在运行期间动态增加功能。     
 ![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/10/28/20-24-19-659fe9fd144b789a4b562c46a714a07d-20201028202419-11292e.png)
 jdk将InputStream分为两类
 * 提供数据的基础InputStream 
@@ -2083,9 +2099,306 @@ readObject可能抛异常
      ```
 **反序列化时，由jvm直接构造出对象，不调用构造方法，构造方法内部代码，反序列化时不会调用**
 ### Reader
+Reader本质是一个基于InputStream的byte到char的转换器,通过InputStreamReader，将InputStream - > Reader",使用try (resource)结构时，当我们关闭Reader时，它会在内部自动调用InputStream的close()方法，所以，只需要关闭最外层的Reader对象即可。
+```java
+InputStream input = new FileInputStream("path/.txt");
+Reader reader = new InputStreamReader(input, "UTF-8");
+```
+`public int read() throws IOException;`  
+`public int read(char[] c) throws IOException`
+|InputStream|Reader|
+|:-:|:-:|
+|字节流，以byte为单位|字符流，以char为单位|
+|(-1,0-255) int read()|(-1,0-65535) int read()|
+|int read(byte[] b)|int read(char[] c)|
+#### FileReader
+```java
+public void readFile() throws IOException(){
+  Reader reader = new FileReader("src/readme.txt");
+  for (;;){
+    int n= reader.read();
+    if(n==-1) break;
+    System.out.println((char)n);
+  }
+  reader.close():
+}
+```
+防止中文乱码，设定编码方式,java8不可用 :cry:
+```
+try(Reader reader = new FileReader(".txt",n.UTF_8)){
+
+}
+```
+#### CharArrayReader
+```java
+try (Reader reader = new CharArrayReader("Hello".toCharArray())) {
+}
+```
+#### StringReader
+同CharArrayReader相同，以String为数据源
+```java
+try (Reader reader = new StringReader("Hello")) {
+}
+```
 ### Writer
+本质是OutputStream，可通过OutputStreamWriter转换
+```java
+try(Writer writer = new OutputStreamWriter(new FileOutputStream(".txt"), "UTF-8")){
+
+}
+```
+`void write(int c)`  
+`void write(char[] c)`  
+`void write(String s)` 
+|OutputStream|Writer|
+|:-:|:-:|
+|字节流，byte|字符流，char|
+|写入字节(0-255)void write(int b)|写入字符（0-65535）void write(int c)|
+|写入字节数组 void write(byte[] b) | void write(char[] c)|
+|None|写入String void write(String s)|
+#### FileWriter
+设定编码 java 8 不可用 :cry:
+```java
+try(Writer writer = new FileWriter(".txt",StandardCharsets.UTF_8)){
+  writer.write('H'); // 写入单个字符
+    writer.write("Hello".toCharArray()); // 写入char[]
+    writer.write("Hello"); // 
+}
+```
+#### CharArrayWriter
+```java
+try (CharArrayWriter writer = new CharArrayWriter()){
+  writer.write(65);
+  char [] data = writer.toCharArray();// A
+}
+```
+#### StringWriter
+维护了一个StringBuffer
+
 ### PrintStream & PrintWriter
+PrintStream 是一种FileOutputStream, 输出的总是byte数据，在OutputStream接口上，额外提供写入各种数据类型的方法
+* print(int)/println(int)
+* print(boolean)
+* print(Object)// print(Object.toString())
+* 
+ 常用的`System.out.println()`实际就是利用PrintStream打印数据  
+ PrintWriter扩展writer接口，print/println输出char数据
 ### Files
+java.nio中的工具类适合于小文件，大文件还是文件流，一次只读取一部分
+```java
+byte[] data = Files.readAllBytes(Paths.get("/path/to/txt"));
+String content1 = Files.readString(Paths.get(""));
+String content1 = Files.readString(Paths.get(""), StandardCharsets.UTF_8);
+List<String> lines = Files.readAllLines(Paths.get(""))
+
+Files.write(Paths.get(), new byte[]{});
+Files.writeString()
+```
+```diff
+- return 1+2;
++ return num1 + num2;
+```
+## 日期与时间
+日期指某一天，离散变化  
+夏令时---夏天开始时，时间拨后一个小时，夏天结束时，时间前拨一个小时
+### Date & Calendar
+epoch time 时间戳表示从1970年1月1日0点到现在经历的秒数 ,历史遗留问题存在两套API 
+* java.util 提供的`Date`、`Calendar`、`TimeZone`
+* java8 引入的java.time `LocalDateTime ZonedDateTime ZoneId`
+  * Month范围用1-12表示1月-12月
+  * Week范围用1-7表示周一-周日
+  
+#### Date
+不能转换时区，除了`toGMTString()`可以转换到GMT+0.00，其他都是当地时区，不能日期算数。
+```java
+public class Date
+    implements java.io.Serializable, Cloneable, Comparable<Date>
+{
+  private transient long fastTime; //表示毫秒
+}
+ System.out.println(date.getYear() + 1900); // 必须加上1900
+  System.out.println(date.getMonth() + 1); // 0~11，必须加上1
+  System.out.println(date.getDate()); // 1~31，不能加1
+  // 转换为String:
+  System.out.println(date.toString());
+  // 转换为GMT时区:
+  System.out.println(date.toGMTString());
+  // 转换为本地时区:
+  System.out.println(date.toLocaleString());
+
+  var sdf = new SimpleDateFormat("E MMM dd, yyyy");
+   System.out.println(sdf.format(date));
+```  
+#### Calendar
+通过单例模式获取，且是当前的时间
+```java
+Calendar c = Calendar.getInstance();
+int y = c.get(Calenday.YEAR);
+int m = c.get(Calendar.MONTH)+1; //月份+1
+int w = c.get(Calendar.DAY_OF_WEEK)// 星期 1-7 表示週日-----週六
+
+c.clear();
+c.set(Calendar.YEAR, 2019);
+Date date = c.getTime();// 转换为date
+```
+#### TimeZone
+Calendar的时区设置借助于TimeZone类  
+```java
+TimeZone tz = TimeZone.getDefault();
+TimeZone tz2 = TimeZone.getTimeZone("GMT+09:00");
+TimeZone tz3 = TimeZone.getTimeZone("American/New York");
+sout(tz.getID());//Etc/UTC
+```
+更换时区，时区信息存放在sdf中，时区转换只能通过SimpleDateFormat在显示时完成。
+```java
+   // 当前时间:
+        Calendar c = Calendar.getInstance();
+        // 清除所有:
+        c.clear();
+        // 设置为北京时区:
+        c.setTimeZone(TimeZone.getTimeZone("Asia/Shanghai"));
+        // 设置年月日时分秒:
+        c.set(2019, 10 /* 11月 */, 20, 8, 15, 0);
+          // 加5天并减去2小时:
+        c.add(Calendar.DAY_OF_MONTH, 5);
+        c.add(Calendar.HOUR_OF_DAY, -2);
+        // 显示时间:
+        var sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        sdf.setTimeZone(TimeZone.getTimeZone("America/New_York"));
+        System.out.println(sdf.format(c.getTime()));
+        // 2019-11-19 19:15:00
+```
+### LocalDateTime
+```java
+    LocalDate localDate = LocalDate.now();
+        LocalTime localTime = LocalTime.now();
+        LocalDateTime localDateTime = LocalDateTime.now();
+        logger.info("localDate {}",localDate);
+        logger.info("localTime {}",localTime);
+        logger.info("localDateTime {}",localDateTime);
+        logger.info("localDateTime {}",localDateTime.toLocalDate());
+        logger.info("localDateTime {}",localDateTime.toLocalTime());
+//创建指定日期时间
+          LocalDate localDate1 = LocalDate.of(2020,10,10);
+        LocalTime localTime1 = LocalTime.of(15,16,27);
+        LocalDateTime localDateTime1 = LocalDateTime.of(2020,11,11,11,11,11,11);
+        LocalDateTime localDateTime2 = LocalDateTime.of(localDate1, localTime1);
+
+         LocalDateTime localDateTime3 = LocalDateTime.parse("2020-11-19T16=5:16:17");
+        LocalDate localDate2 = LocalDate.parse("2020-11-19");
+        LocalTime localTime2 = LocalTime.parse("16:16:16");
+```
+在通过String创建指定日期的时间时，按照ISO 8601的格式
+* 日期`yyyy-MM-dd`
+* 时间`HH:mm:ss`
+* 带毫秒的时间`HH:mm:ss.SS`
+* 日期和时间`yyyy-MM-ddTHH:mm:ss`
+* 带毫秒的日期和时间`yyyy-MM-ddTHH:mm:ss.SSS`
+
+将非格式化的String解析为LocalDateTime，可以用DateTimeFormatter，解析为LocalDateTime时，String需要包含LocalDate和LocalTime信息。
+```java
+     DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss");
+        logger.info("1 {}", dateTimeFormatter.format(LocalDateTime.now()));
+
+        LocalDateTime localDateTime4 = LocalDateTime.parse("20201019 10:10:10",dateTimeFormatter);
+        logger.info("{}",localDateTime4);
+```
+提供了链式调用的算数运算
+```java
+localDateTime4.plusDays(1).minusDays(1);
+        logger.info("{}",localDateTime4);
+```
+修改时间时用with接口
+```java
+   localDateTime4.withYear(2021);
+
+  LocalDateTime firstDay = localDateTime4.toLocalDate().withDayOfMonth(1).atStartOfDay();
+        logger.info("本月的第一天 {}", firstDay);
+        LocalDate lastDay = localDateTime4.toLocalDate().with(TemporalAdjusters.lastDayOfMonth());
+        logger.info("本月最后一天{}", lastDay);
+        LocalDate nextMonthFirstDay = localDateTime4.toLocalDate().with(TemporalAdjusters.firstDayOfNextMonth());
+        logger.info("下月第一天{}",nextMonthFirstDay);
+        LocalDate firstWeekday = localDateTime4.toLocalDate().with(TemporalAdjusters.firstInMonth(DayOfWeek.MONDAY));
+        logger.info("本月第一个周一 {}",firstWeekday);
+```
+比较两个LocalDateTime的先后
+```java
+    LocalDateTime now = LocalDateTime.now();
+        LocalDateTime target = LocalDateTime.of(2019, 11, 19, 8, 15, 0);
+        System.out.println(now.isBefore(target));
+        System.out.println(LocalDate.now().isBefore(LocalDate.of(2019, 11, 19)));
+        System.out.println(LocalTime.now().isAfter(LocalTime.parse("08:15:00")));
+```
+时间、日期间隔
+LocalDateTime之间的差值由Duration表示，`PT123H10M3S`123小时,10分,3秒  
+LocalDate之间的差值由Period表示，`P1M21D`1月21天  
+P和T之间表示日期间隔，T后表示时间间隔,PT表示只有时间间隔。
+```java
+   LocalDateTime localDateTime11 = LocalDateTime.of(2020,10,10,10,10,10);
+        LocalDateTime localDateTime12 = LocalDateTime.of(2020,11,11,11,11,11);
+        Duration duration = Duration.between(localDateTime11,localDateTime12);
+        logger.info("{}",duration);//PT769H1M1S
+        long duration1 = localDateTime11.until(localDateTime12, MINUTES);
+        logger.info("{}",duration1);//46141
+
+        Period period = localDateTime11.toLocalDate().until(localDateTime12.toLocalDate());
+        logger.info("{}",period);//P1M1D
+        Period period1 = Period.between(localDateTime11.toLocalDate(), localDateTime12.toLocalDate());
+        logger.info("{}",period1);//P1M1D
+```
+可通过of、parse创建常量。
+```java
+  Duration duration2 = Duration.ofHours(1);
+        Duration duration3 = Duration.parse("P1DT2H");
+```
+#### ZonedDateTime
+提供了时区信息
+```java
+ ZonedDateTime zonedDateTime = ZonedDateTime.now();
+        ZonedDateTime zonedDateTime1 = ZonedDateTime.now(ZoneId.of("America/New_York"));
+        Set<String> ids = ZoneId.getAvailableZoneIds();
+        Iterator<String> it = ids.iterator();
+        while(it.hasNext()){
+            String id = (String)it.next();
+//            System.out.println(id);
+        }
+```
+通过with接口 时区转换
+```java
+ LocalDateTime localDateTime = LocalDateTime.of(2020,11,11,11,11,11);
+        ZonedDateTime zonedDateTime2 = localDateTime.atZone(ZoneId.systemDefault());
+        ZonedDateTime zonedDateTime3 = localDateTime.atZone(ZoneId.of("America/New_York"));
+
+        ZonedDateTime zonedDateTime4 = zonedDateTime3.withZoneSameInstant(ZoneId.of("America/New_York"));
+
+        LocalDateTime localDateTime1 = zonedDateTime4.toLocalDateTime();//丢弃时区信息
+```
+#### DateTimeFormatter
+DateTimeFormatter 不但是不变对象，还线程安全，simpleDateFormat仅在方法内部创建局部变量。
+* `DateTimeFormatter formatter1 = DateTimeFormatter.ofPattern("yyyy--MM-dd");`//2020-11-07T09:22 GMT
+* `DateTimeFormatter formatter2 =  DateTimeFormatter .ofPattern("E yyyy--MM-dd", local.US)`//Sat, November/07/2020 09:22
+```java
+ System.out.println(DateTimeFormatter.ISO_DATE.format(localDateTime1));
+        System.out.println(DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(localDateTime1));
+```
+#### Instant
+Instant表示高精度时间戳，它可以和ZonedDateTime以及long互相转换
+```java
+public final class Instant implements ... {
+    private final long seconds;
+    private final int nanos;
+}
+```
+```java
+// 以指定时间戳创建Instant:
+Instant ins = Instant.ofEpochSecond(1568568760);
+ZonedDateTime zdt = ins.atZone(ZoneId.systemDefault());
+System.out.println(zdt); // 2019-09-16T01:32:40+08:00[Asia/Shanghai]
+```
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/07/17-34-08-145561107d8a847fc9db555a15536b57-20201107173408-a01a42.png)
+
+
+计算机存储的当前时间，本质是一个不断增长的整数。
 ### 重写（Override） VS 重载（Overload）
   * Override
     * 重写方法不能抛出新的异常或者比被重写方法方法更加宽泛的异常
