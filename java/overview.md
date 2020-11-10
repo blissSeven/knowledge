@@ -19,6 +19,15 @@
     - [BigDecimal](#bigdecimal)
     - [数组](#数组)
     - [正则表达式](#正则表达式)
+      - [匹配规则](#匹配规则)
+      - [复杂匹配规则](#复杂匹配规则)
+      - [分组分配](#分组分配)
+      - [非贪婪匹配](#非贪婪匹配)
+      - [搜索和替换](#搜索和替换)
+        - [分割](#分割)
+        - [搜索子串](#搜索子串)
+        - [替换字符串](#替换字符串)
+        - [反向引用](#反向引用)
   - [面向对象](#面向对象)
     - [方法](#方法)
     - [继承](#继承)
@@ -123,6 +132,16 @@
       - [ZonedDateTime](#zoneddatetime)
       - [DateTimeFormatter](#datetimeformatter)
       - [Instant](#instant)
+  - [单元测试](#单元测试)
+    - [Junit单元测试工具](#junit单元测试工具)
+    - [Fixture](#fixture)
+    - [异常测试](#异常测试)
+    - [条件测试](#条件测试)
+    - [参数化测试](#参数化测试)
+    - [函数式编程](#函数式编程)
+      - [方法引用](#方法引用)
+      - [Stream](#stream)
+  - [|用途|序列化至文件或网络|内存计算\业务逻辑|](#用途序列化至文件或网络内存计算业务逻辑)
     - [重写（Override） VS 重载（Overload）](#重写override-vs-重载overload)
 ## 语法  
 ### 基础
@@ -483,6 +502,103 @@ java.math.BigInteger就是用来表示任意大小的整数。BigInteger内部�
             c1.set(2017, 2, -10); 2017 1 18
         ```
 ### 正则表达式
+正则也是字符串,对于正则`a\&c`，等同于字符串`a\\&c`
+#### 匹配规则
+从左到右  
+单字符匹配规则  
+|正则|规则|example|
+|:-:|:-:|:-:|
+|A|指定字符|A|
+|\u548c|指定unicode字符|和|
+|.|任意字符|a,b,&,0|
+|\d|0-9数字|0-9|
+|\w|大小写字母+下划线|a-z,A-Z,0-9,_|
+|\s|空格、TAB键|空格+tab|
+|\D|非数字|a,A,&|
+|\W|非\w|非大小写字母，下划线, e.g. &,@!|
+|\S|非\s|非空格，非tab|
+多个字符匹配规则
+|正则|规则|example|
+|:-:|:-:|:-:|
+|A*|任意个数字符|空，A,AA,AAA|
+|A+|至少一个字符|A,AA,AAA|
+|A?|0个或1个字符|空或A|
+|A{3}|指定个数字符|AAA|
+|A{2,3}|指定范围个数字符|AA,AAA|
+|A{2,}|至少n个字符|AA,AAA,AAAA|
+|A{0,3}|至多n个字符|空，A,AA,AAA|
+#### 复杂匹配规则
+可以用`()`表示一个子规则括起来，
+|正则|规则|example|
+|:-:|:-:|:-:|
+|^|开头|字符串开头|
+|$|结尾|字符串结尾|
+|[abc]|[...]内任意字符，仅一个|a,b,c|
+|[^A-F]|指定范围外字符|非A～F|
+|`(AB|CD|EF)`|或|AB,CD,EF|
+#### 分组分配
+`（）`将子规则括起来，可用于匹配后的分组 ,匹配到的是匹配到的子规则的字符串
+`Pattern`用于编译正则，一次编译可用于多次的`Matcher`匹配   
+`matcher.group(0)`表示匹配的整个字符串
+`matcher.group(1)`表示匹配的第一个子串
+```java
+Pattern pattern = Pattern.compile("(\\d{3,4})\\-(\\d{7,8})");
+        Matcher matcher = pattern.matcher("010-1234567");
+        if(matcher.matches()){
+            logger.info("{}",matcher.group(0));//010-1234567
+            logger.info("{}",matcher.group(1));//010 // ！！！没有-
+            logger.info("{}",matcher.group(2));//1234567
+        }
+```
+#### 非贪婪匹配
+默认情况下，正则对于一些`*+`处于贪心模式，会尽可能匹配多的字符
+```java
+ Pattern pattern1 = Pattern.compile("(\\d+)(0*)");
+        Matcher matcher1 = pattern1.matcher("1230000");
+        if (matcher1.matches()) {
+            logger.info("{}", matcher1.group(1));//1230000
+            logger.info("{}", matcher1.group(2));//""
+        }
+```
+通过`?`可以使正则处于非贪婪模式
+```java
+Pattern lazyPattern1 = Pattern.compile("(\\d+?)(0*)");
+        Matcher lazyMatcher1 = lazyPattern1.matcher("1230000");
+        if (lazyMatcher1.matches()) {
+            logger.info("{}", lazyMatcher1.group(1));//123
+            logger.info("{}", lazyMatcher1.group(2));//0000
+        }
+```
+`(\d??)` `?`表示匹配0个或1个，`?`表示非贪婪模式，所以匹配0个数字
+#### 搜索和替换
+##### 分割
+```java
+ String[] splits = "a b c ".split("\\s");
+        logger.info("{}", Arrays.toString(splits));
+```
+##### 搜索子串
+```java
+String s = "the quick brown fox jumps over the lazy dog.";
+        Pattern pattern2 = Pattern.compile("\\wo\\w");
+        Matcher matcher2 = pattern2.matcher(s);
+        while (matcher2.find()) {
+            String sub = s.substring(matcher2.start(), matcher2.end());
+            logger.info("{}", sub);
+        }
+```
+##### 替换字符串
+```java
+  String s2 = "The     quick\t\t brown   fox  jumps   over the  lazy dog.";
+        String r = s.replaceAll("\\s+", " ");
+        logger.info("{}", r);
+```
+##### 反向引用
+`$1`表示对group1`()`匹配到的 ,类推
+```java
+  s = "the quick brown fox jumps over the lazy dog.";
+        r = s.replaceAll("\\s([a-z]{4})\\s", " <b>$1</b> ");//group
+        logger.info("{}", r);
+```
   * Pattern 正则表达式的编译表示,接受正则表达式作为参数
     * Pattern m=Pattern.compile(regrex)
   * Matcher对输入字符串进行解释和匹配操作
@@ -2397,6 +2513,231 @@ System.out.println(zdt); // 2019-09-16T01:32:40+08:00[Asia/Shanghai]
 ```
 ![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/07/17-34-08-145561107d8a847fc9db555a15536b57-20201107173408-a01a42.png)
 
+## 单元测试
+### Junit单元测试工具
+测试方法`@Test`标注
+### Fixture
+```java
+invokeBeforeAll(xxxxTest.class)
+for(Method testMethod : findTestMethods(xxxxTest.class)){
+  var test = new xxxxTest();// 创建xxxxTest实例
+  invokeBeforeEach(test);
+    invokeTestMethod(test, testMethod);
+  invokeAfterEach(test);
+}
+invokeAfterAll(xxxxTest.class);
+```
+```java
+    Calculator calculator;
+    @BeforeEach
+    public void setUp(){
+        this.calculator = new Calculator();
+    }
+    @AfterEach
+    public void tearDown(){
+        this.calculator = null;
+    }
+    @Test
+    void testAdd(){
+        assertEquals(100, this.calculator.add(100));
+        assertEquals(150, this.calculator.add(50));
+    }
+    @Test
+    void testSub(){
+        assertEquals(-100, this.calculator.sub(100));
+        assertEquals(-50, this.calculator.sub(50));
+    }
+
+    private class Calculator {
+        private long n = 0;
+
+        public long add(long x) {
+            n = n + x;
+            return n;
+        }
+
+        public long sub(long x) {
+            n = n - x;
+            return n;
+        }
+    }
+```
+* 对于实例变量，在`@BeforeEach`中初始化，在`@AfterEach`中清理，它们在各个`@Test`方法中互不影响，因为是不同实例
+* 对于静态变量，在`@BeforeAll`中初始化，`@AfterAll`清理，它们在各个`@Test`中是唯一实例，会影响各个`@Test`方法
+* 大多数情况下，`@BeforeEach``@AfterEach`足够，只有资源初始化耗费时间长时，`@BeforeAll``@AfterAll`
+* 每次运行`@Test`方法前，Junit首先创建一个xxxxTest实例，每个`@Test`方法内部成员变量独立，不能也无法把成员变量状态从一个`@Test`转移到另一个`@Test`
+### 异常测试
+`assertThrows`提供测试的待捕获的异常，以及可能产生异常的代码
+```java
+  public static void testException(int n) {
+            if (n == 0) {
+                throw new IllegalArgumentException();
+            } else {
+                System.out.println("no exception");
+            }
+        }
+
+         @Test
+    void testNoneZero() {
+        assertThrows(IllegalArgumentException.class, () ->{
+            Calculator.testException(0);
+        });
+    }
+    @Test
+    void testNoneZero2() {
+        assertThrows(IllegalArgumentException.class, new Executable() {
+            @Override
+            public void execute() throws Throwable {
+                Calculator.testException(0);
+            }
+        });
+    }
+```
+### 条件测试
+* `@Disabled`禁用测试
+* `@EnableOS({OS.WINDOWS, OS.LINUX})`只在windows和linux系统下测试
+* `@EnabledIfSystemProperty(named = "os.arch", matches = ".*64.*")` 只在64bit系统下测试
+* `@EnabledIfEnvironmentVariable(named = "DEBUG", matches = "true")`需要传入环境变量DEBUG=true才执行测试
+  
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/09/16-34-55-a3cc0abe873412dc65f08d9556aa1b23-20201109163455-71cb5f.png)
+
+### 参数化测试
+`ParameterizedTest`测试方法至少接受一个参数，传入一组参数执行测试  
+1. ValueSource 直接提供数据
+```java
+ @ParameterizedTest
+    @ValueSource(ints = {0, 1, 5, 100})
+    void testAbs(int x) {
+        assertEquals(x, Math.abs(x));
+    }
+```
+2. MethodSourde，允许创建一个和测试方法`testCapitalize`同名的静态接口`testCapitalize`，提供测试数据,或者提供`@MethodSource(value = {"testCapitalize2"})`提供接口名
+```java
+@ParameterizedTest
+    @MethodSource
+    void testCapitalize(String input, String output) {
+        assertEquals(output, capitalize(input));
+    }
+
+    static List<Arguments> testCapitalize() {
+        List<Arguments> list = new ArrayList<>();
+        list.add(Arguments.arguments("abc", "Abc"));
+        list.add(Arguments.arguments("APPLE", "Apple"));
+        return list;
+    }
+```
+   3. CsvSource, 一个字符串代表一行数据，逗号分割
+```java
+ @ParameterizedTest
+    @CsvSource({"abc, Abc" , "APPLE,Apple"})
+    void testCapitalizeUsingCsvSource(String input, String output) {
+        assertEquals(output, capitalize(input));
+    }
+```
+4. CsvFileSource 提供classpath下的csv文件
+```java
+   @ParameterizedTest
+    @CsvFileSource(resources = {"/test-capitalize.csv"})
+    void testCapitalizeUsingCsvFileSource(String input, String output) {
+        assertEquals(output, capitalize(input));
+    }
+```
+```csv
+//./test-capitalize.csv
+apple, Apple
+HELLO, Hello
+JUnit, Junit
+reSource, Resource
+```
+### 函数式编程
+函数作为基本运算单元，可以接收函数，也可以返回函数。   
+把定义了单抽象方法的接口称为`FunctionalInterface`,用注解`FunctionalInterface`标识 ，指明该接口类型声明是根据 Java 语言规范定义的函数式接口，根据定义，函数式接口只能有一个抽象方法，JDK8接口中的静态方法和默认方法，都不算是抽象方法
+```java
+@FunctionalInterface
+public interface Callable<V> {
+    V call() throws Exception;
+}
+```
+```java
+@FunctionalInterface
+public interface Comparator<T> {
+
+    int compare(T o1, T o2);
+
+    boolean equals(Object obj);// Object 定义方法，不算在接口内
+
+    default Comparator<T> reversed() {
+        return Collections.reverseOrder(this);
+    }
+
+    default Comparator<T> thenComparing(Comparator<? super T> other) {
+        ...
+    }
+    ...
+}
+```
+#### 方法引用
+**静态方法引用**
+```java
+static int cmp(String s1, String s2) {
+        return s1.compareTo(s2);
+    }
+      String[] array = new String[]{"Apple", "Orange", "Banana", "Lemon"};
+        Arrays.sort(array, LambdaTest::cmp);
+        logger.info("{}", Arrays.toString(array));
+```
+**实例方法**
+```java
+    public int compareTo(String anotherString) {
+        int len1 = value.length;
+        int len2 = anotherString.value.length;
+        int lim = Math.min(len1, len2);
+        char v1[] = value;
+        char v2[] = anotherString.value;
+
+        int k = 0;
+        while (k < lim) {
+            char c1 = v1[k];
+            char c2 = v2[k];
+            if (c1 != c2) {
+                return c1 - c2;
+            }
+            k++;
+        }
+        return len1 - len2;
+    }
+   Arrays.sort(array, String::compareTo);
+```
+**构造方法**
+```java
+ List<String> list = Arrays.asList(array);
+list.stream().map(Fruit::new).collect(Collectors.toList()).forEach(System.out::println);
+
+ static class Fruit {
+        String name;
+
+        public Fruit(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public String toString() {
+            return "Fruit{" +
+                    "name='" + name + '\'' +
+                    '}';
+        }
+    }
+```
+#### Stream
+||`java.io` |`java.util.stream`|
+|:-:|:-:|:-:|:-:|
+|存储|顺序读写的byte或char|顺序输出的任意java对象实例|
+|用途|序列化至文件或网络|内存计算\业务逻辑|
+----
+||java.util.list|java.util.stream|
+|:-:|:-:|:-:|:-:|
+|元素|已分配并存储在内存|可能未分配，实时计算|
+|用途|操作已存在的对象|惰性计算|
 
 计算机存储的当前时间，本质是一个不断增长的整数。
 ### 重写（Override） VS 重载（Overload）
