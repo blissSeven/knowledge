@@ -68,7 +68,17 @@
 * git push origin <src>:<dst> 将本地src分之推送到远程dst分之  
 * git push origin foo^:master  
 * git push origin  :foo删除远程foo分之  
+## git stash
+* git stash save 'message'
+* git stash list 
+* git stash show 显示做了哪些改动，整体的，默认第一个。第二个`git stash show stash@{1}`
+* git stash show -p 显示第一个存储的改动
+* git stash apply 应用某个存储，但不会把存储从存储列表中删除，默认第一个。第二个`git stash apply stash@{1}`
+* git stash pop 恢复之前缓存的目录，将缓存堆栈中对应的stash删除，将对应修改应用到当前工作目录下。
+* git stash drop丢弃stash中数据，默认第一个
+* git stash clear 清除所有缓存的stash
 
 
 
+{"zh_TW":{"data_url":"https://cdn.cnbj1.fds.api.mi-img.com/miwifi/3958221a-17aa-493e-b6b2-17fc5dffcff3.txt?GalaxyAccessKeyId=AKN4YH6B3OTPPRKHHA&Expires=1921218980773&Signature=L3+AXtMdjegcH3isr4YxQf3HPoA=","data_md5":"31ea1437ffa2943b1863b5c5c9f0cfd3","ts":1604994981136},"zh_HK":{"data_url":"https://cdn.cnbj1.fds.api.mi-img.com/miwifi/761a5830-d2b6-4ad3-831e-9c657a94c4f0.txt?GalaxyAccessKeyId=AKN4YH6B3OTPPRKHHA&Expires=1921218981212&Signature=9qFf53IvJasw4sevdv2o+ewucWw=","data_md5":"8df4908882ecb157b903ef5e84c69b64","ts":1604994981214},"ko":{"data_url":"https://cdn.cnbj1.fds.api.mi-img.com/miwifi/eeed4a1f-779b-47d7-8461-bfbe76e99013.txt?GalaxyAccessKeyId=AKN4YH6B3OTPPRKHHA&Expires=1921218981749&Signature=o4/AQJuPaqBs5YaHwb9XTLKOKQA=","data_md5":"f787f07160b102387ef9cf9d2eab4325","ts":1604994981752},"en":{"data_url":"https://cdn.cnbj1.fds.api.mi-img.com/miwifi/6b90342d-7cac-43d1-afed-4f592dd3da8a.txt?GalaxyAccessKeyId=AKN4YH6B3OTPPRKHHA&Expires=1921218981806&Signature=XTGegaj8JP/iS1udpiBUId8QPfc=","data_md5":"11cb15ae28d8ecff23ff5f40eb6f52d6","ts":1604994981807},"zh_CN":{"data_url":"https://cdn.cnbj1.fds.api.mi-img.com/miwifi/542eacfa-3daf-413d-8392-bd5fd0c9252f.txt?GalaxyAccessKeyId=AKN4YH6B3OTPPRKHHA&Expires=1921218981862&Signature=cMxhG1n4bm//DpkcMrQ9MwKRMVU=","data_md5":"cc8bc58e09f0cb50a2f513bf88bbef46","ts":1604994981863}}
 

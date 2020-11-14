@@ -142,6 +142,17 @@
       - [方法引用](#方法引用)
       - [Stream](#stream)
   - [|用途|序列化至文件或网络|内存计算\业务逻辑|](#用途序列化至文件或网络内存计算业务逻辑)
+        - [创建 Stream](#创建-stream)
+        - [基本概念](#基本概念)
+        - [map](#map-1)
+        - [filter](#filter)
+        - [reduce](#reduce)
+        - [输出结果](#输出结果)
+        - [其他操作](#其他操作)
+      - [网络编程](#网络编程)
+        - [TCP](#tcp)
+        - [UDP](#udp)
+      - [Java Web](#java-web)
     - [重写（Override） VS 重载（Overload）](#重写override-vs-重载overload)
 ## 语法  
 ### 基础
@@ -2611,7 +2622,7 @@ invokeAfterAll(xxxxTest.class);
         assertEquals(x, Math.abs(x));
     }
 ```
-2. MethodSourde，允许创建一个和测试方法`testCapitalize`同名的静态接口`testCapitalize`，提供测试数据,或者提供`@MethodSource(value = {"testCapitalize2"})`提供接口名
+2. MethodSource，允许创建一个和测试方法`testCapitalize`同名的静态接口`testCapitalize`，提供测试数据,或者提供`@MethodSource(value = {"testCapitalize2"})`提供接口名
 ```java
 @ParameterizedTest
     @MethodSource
@@ -2677,6 +2688,7 @@ public interface Comparator<T> {
 }
 ```
 #### 方法引用
+使用Lambda表达式，我们就可以不必编写FunctionalInterface接口的实现类    
 **静态方法引用**
 ```java
 static int cmp(String s1, String s2) {
@@ -2738,6 +2750,345 @@ list.stream().map(Fruit::new).collect(Collectors.toList()).forEach(System.out::p
 |:-:|:-:|:-:|:-:|
 |元素|已分配并存储在内存|可能未分配，实时计算|
 |用途|操作已存在的对象|惰性计算|
+##### 创建 Stream
+* `Stream.of`
+  * ```java
+      Stream<String> stream = Stream.of("A","B");
+        Stream<Integer> stream2 = Stream.of(1,2);
+     ```
+* 基于数组或Collection
+  * ```java
+      Stream<String> stream3 = Arrays.stream(new String[]{"2", "2"});
+        List<String> list = new ArrayList<>();
+        Stream<String> stream4 = list.stream();
+        //        Stream<String> stream5 = List.of("x","y").stream(); java8 later 
+     ```
+* java.io.BufferedReader.lines()
+  * Stream<String> lines = Files.lines(Paths.get("./xtx"));
+* 静态工厂
+  * java.util.stream.IntStream.range()
+  * java.nio.file.Files.walk()
+* 自己构建 
+  * `java.util.Spliterator`
+  * `Stream.generate` 保存的是获取元素的算法
+    * ```java
+        Stream<Integer> stream6 = Stream.generate(new NaturalSupplier());
+        stream6.limit(6).forEach(System.out::print);
+        static class NaturalSupplier implements Supplier<Integer>{
+        int n = 0;
+        @Override
+        public Integer get(){
+            n++;
+            return n;
+        }
+    }
+       ```
+* 其他
+  * Random.ints()
+  * BitSet.stream()
+  * Pattern.splitAsStream(java.lang.CharSequence)
+  * JarFile.stream()
+  * java泛型不支持基本类型，提供了`IntStream、LongStream、DoubleStream`，等同于`Stream<Integer>`只不过，这种会boxing、unboxing耗时严重。
+    * ```java
+       IntStream is = Arrays.stream(new int[]{1,2,3});
+       ```
+##### 基本概念
+Stream操作类型分为两种:
+* Intermediate 打开流，并做过滤、映射，为惰性操作，仅仅调用这类方法并未真正开始流的遍历
+  * `map(mapToInt、flatMap)、filter、distinct、sorted、peek、limit、skip、parallel、sequential、unordered`
+* Terminal 一个流只能有一个Terminal操作，且操作后，Stream被消耗，无法被再次操作。Terminal操作的执行，才会真正的遍历流，生成一个结果或者side effect。  
+  * `forEach、forEachOrdered、toArray、reduce、collect、min、max、count、anyMatch、allMatch、iterator、findFirst`
+* short-circuiting
+  * 对于interminate操作，接受一个无限大的Stream，但是返回一个有限的Stream
+  * 对于一个terminal操作，接受一个无限大的Stream，但能在有限时间计算出结果
+  * anyMatch、allMatch、noneMatch、findFirst
+  
+***多个转换操作只会在 Terminal 操作的时候融合起来，一次循环完成。可以理解为，Stream 里有个操作函数的集合，每次转换操作就是把转换函数放入这个集合中，在 Terminal 操作的时候循环 Stream 对应的集合，然后对每个元素执行所有的函数***  
+***当limit/skip操作放在sorted后面时，不会影响sorted的调用，尽量排序前进行 limit 和 skip***
+
+##### map
+将一个元素映射到另一个元素上  ,map接受Function对象，Function中的apply函数，将T转换为R。
+`<R> Stream<R> map(Function<? super T, ? extends R> mapper);`   
+```java
+@FunctionalInterface
+public interface Function<T, R> {
+    R apply(T t);
+
+    default <V> Function<V, R> compose(Function<? super V, ? extends T> before) {
+        Objects.requireNonNull(before);
+        return (V v) -> apply(before.apply(v));
+    }
+    default <V> Function<T, V> andThen(Function<? super R, ? extends V> after) {
+        Objects.requireNonNull(after);
+        return (T t) -> after.apply(apply(t));
+    }
+    static <T> Function<T, T> identity() {
+        return t -> t;
+    }
+}
+
+  IntStream is = Arrays.stream(new int[]{1,2,3});
+        int[] ret = is.map( n-> n*n).toArray();
+        System.out.println(Arrays.toString(ret));
+```
+##### filter
+满足条件的会留下，否则会被丢弃 ，filter接受Predicate对象
+```java
+@FunctionalInterface
+public interface Predicate<T> {
+    // 判断元素t是否符合条件:
+    boolean test(T t);
+}
+
+stream.filter(n -> n.equalsIgnoreCase("A")).forEach(System.out::println);
+```
+##### reduce
+聚合方法，将所有元素按照聚合函数聚合成一个结果  , BinaryOperator的apply操作。  
+`int sum = Stream.of(1, 2, 3, 4, 5, 6, 7, 8, 9).reduce(0, (acc, n) -> acc + n);`
+```java
+T reduce(T identity, BinaryOperator<T> accumulator);
+
+@FunctionalInterface
+public interface BinaryOperator<T> extends BiFunction<T,T,T> {
+    public static <T> BinaryOperator<T> minBy(Comparator<? super T> comparator) {
+        Objects.requireNonNull(comparator);
+        return (a, b) -> comparator.compare(a, b) <= 0 ? a : b;
+    }
+    public static <T> BinaryOperator<T> maxBy(Comparator<? super T> comparator) {
+        Objects.requireNonNull(comparator);
+        return (a, b) -> comparator.compare(a, b) >= 0 ? a : b;
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------------------------
+@FunctionalInterface
+public interface BiFunction<T, U, R> {
+
+    R apply(T t, U u);
+
+    default <V> BiFunction<T, U, V> andThen(Function<? super R, ? extends V> after) {
+        Objects.requireNonNull(after);
+        return (T t, U u) -> after.apply(apply(t, u));
+    }
+}
+
+  // 按行读取配置文件:
+        List<String> props = List.of("profile=native", "debug=true", "logging=warn", "interval=500");
+        Map<String, String> map = props.stream()
+                // 把k=v转换为Map[k]=v:
+                .map(kv -> {
+                    String[] ss = kv.split("\\=", 2);
+                    return Map.of(ss[0], ss[1]);
+                })
+                // 把所有Map聚合到一个Map:
+                .reduce(new HashMap<String, String>(), (m, kv) -> {
+                    m.putAll(kv);
+                    return m;
+                });
+        // 打印结果:
+        map.forEach((k, v) -> {
+            System.out.println(k + " = " + v);
+        });
+```
+当reduce没有初始值时，返回的是Optional，避免NPE问题，且提供的是编译时检查。
+```java
+        List<Integer> list1 = new ArrayList<>();
+        list1.add(1);
+        list1.add(2);
+        Optional sum = list1.stream().reduce((acc, n)-> acc+n);
+        System.out.println(sum.get());
+```
+##### 输出结果
+* 输出为List  `stream.collect(Collectors.toList());`
+  * `List<String> list2 = stream.collect(Collectors.toCollection(ArrayList::new));`
+* 输出为数组 `list.stream().toArray(String[]::new);` //不加String::new 返回Object[]
+* 输出为Map
+  * ```java
+      Stream<String> stream = Stream.of("APPL:Apple", "MSFT:Microsoft");
+        Map<String, String> map = stream
+                .collect(Collectors.toMap(
+                        // 把元素s映射为key:
+                        s -> s.substring(0, s.indexOf(':')),
+                        // 把元素s映射为value:
+                        s -> s.substring(s.indexOf(':') + 1)));
+     ```
+##### 其他操作
+* 排序 
+  *  ```java
+       List<String> list = List.of("Orange", "apple", "Banana")
+            .stream()
+            .distinct()
+            .collect(Collectors.toList());
+      ```
+* 去重 
+  * ```java
+      List<String> list = List.of("Orange", "apple", "Banana")
+    .stream()
+    .sorted(String::compareToIgnoreCase)
+    .collect(Collectors.toList());
+     ```
+* 截取
+  * ```java
+     List.of("A", "B", "C", "D", "E", "F")
+    .stream()
+    .skip(2) // 跳过A, B
+    .limit(3) // 截取C, D, E
+    .collect(Collectors.toList()); // [C, D, E]
+     ```
+* 合并
+  * ```java
+     Stream<String> s1 = List.of("A", "B", "C").stream();
+    Stream<String> s2 = List.of("D", "E").stream();
+    // 合并:
+    Stream<String> s = Stream.concat(s1, s2);
+    System.out.println(s.collect(Collectors.toList())); // [A, B, C, D, E]
+     ```
+* flatMap 输入多个对象，输出一个对象，多对一
+  * ```java
+     Stream<List<Integer>> s = Stream.of(
+        Arrays.asList(1, 2, 3),
+        Arrays.asList(4, 5, 6),
+        Arrays.asList(7, 8, 9));
+        Stream<Integer> i = s.flatMap(list -> list.stream());
+     ```
+* 并行，转换为并行的Stream
+  * ```java
+     String[] result = s.parallel() // 变成一个可以并行处理的Stream
+                   .sorted() // 可以进行并行排序
+                   .toArray(String[]::new);
+     ```
+#### 网络编程
+网络号=Ip&子网掩码，网络号相同表示在同一个网络，不在同一个网络通信需要路由、网关。  
+`nslookup`查看域名对应IP
+##### TCP
+```java
+public class TCPServer {
+    public static void main(String[] args) throws IOException {
+        ServerSocket ss = new ServerSocket(6666);
+        while (true) {
+            Socket sock = ss.accept();//
+            System.out.println("accepted from " + sock.getRemoteSocketAddress());
+            Thread t = new Handler(sock);
+            t.run();
+        }
+    }
+    static class Handler extends Thread {
+        Socket socket;
+
+        public Handler(Socket socket) {
+            this.socket = socket;
+        }
+
+        @Override
+        public void run() {
+            try (InputStream inputStream = this.socket.getInputStream()) {
+                try (OutputStream outputStream = this.socket.getOutputStream()) {
+                    handle(inputStream, outputStream);
+                }
+            } catch (IOException e) {
+                try{
+                    this.socket.close();
+                } catch (IOException ioException) {
+                    ioException.printStackTrace();
+                }
+                System.out.println("client disconected");
+            }
+        }
+
+        private void handle(InputStream inputStream, OutputStream outputStream) throws IOException {
+            Writer writer = new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8));
+            Reader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+
+            writer.write("hello\n");
+            writer.flush();
+            while (true) {
+                String s = ((BufferedReader) reader).readLine();//
+                if (s.equalsIgnoreCase("bye")) {
+                    writer.write("bye\n");
+                    writer.flush();
+                    break;
+                }
+                writer.write("ok " + s + "\n");
+                writer.flush();
+            }
+        }
+    }
+}
+```
+```java
+public class TCPClient {
+    public static void main(String[] args) throws IOException {
+        Socket socket = new Socket("localhost",6666);
+        try(InputStream inputStream = socket.getInputStream()){
+            try(OutputStream outputStream = socket.getOutputStream()){
+                handler(inputStream, outputStream);
+            }
+        }
+    }
+    private static void handler(InputStream inputStream, OutputStream outputStream) throws IOException {
+        Writer writer = new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8));
+        Reader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+        Scanner scanner =new Scanner(System.in);
+        System.out.println("[sever] "+ ((BufferedReader) reader).readLine());
+        while(true){
+            System.out.print(">>>");
+            String s = scanner.nextLine();
+            writer.write(s);
+            ((BufferedWriter) writer).newLine();
+            writer.flush();
+            String resp = ((BufferedReader) reader).readLine();
+            System.out.println("<<< "+resp);
+            if(resp.equalsIgnoreCase("bye")){
+                break;
+            }
+        }
+    }
+}
+```
+##### UDP
+```java
+public class UDPServer {
+    public static void main(String[] args) throws IOException {
+        DatagramSocket datagramSocket = new DatagramSocket(6666);
+        while (true) {
+            byte[] buffer = new byte[10];
+            DatagramPacket datagramPacket = new DatagramPacket(buffer, buffer.length);
+            datagramSocket.receive(datagramPacket);
+            System.out.println("get connect from "+datagramPacket.getAddress()+" "+datagramPacket.getPort());
+//            收取到的是一个String，那么，通过DatagramPacket返回的packet.getOffset()和packet.getLength()确定数据在缓冲区的起止位置
+            String s = new String(datagramPacket.getData(), datagramPacket.getOffset(), datagramPacket.getLength(), StandardCharsets.UTF_8);
+            byte[] data = "ACK".getBytes();
+            datagramPacket.setData(data);
+//            当服务器收到一个DatagramPacket后，通常必须立刻回复一个或多个UDP包，因为客户端地址在DatagramPacket中，每次收到的DatagramPacket可能是不同的客户端，如果不回复，客户端就收不到任何UDP包
+            datagramSocket.send(datagramPacket);
+        }
+    }
+}
+```
+```java
+public class UDPClient {
+    public static void main(String[] args) throws IOException {
+        DatagramSocket datagramSocket = new DatagramSocket();
+        datagramSocket.setSoTimeout(1000);
+//这个connect()方法不是真连接，它是为了在客户端的DatagramSocket实例中保存服务器端的IP和端口号，
+// 确保这个DatagramSocket实例只能往指定的地址和端口发送UDP包，不能往其他地址和端口发送。这么做不是UDP的限制，而是Java内置了安全检查
+        datagramSocket.connect(InetAddress.getByName("localhost"), 6666);
+        byte[] data = "Hello".getBytes();
+        DatagramPacket datagramPacket = new DatagramPacket(data, data.length);
+        datagramSocket.send(datagramPacket);
+
+        byte[] buffer = new byte[7];
+        datagramPacket = new DatagramPacket(buffer, buffer.length);
+        datagramSocket.receive(datagramPacket);
+        String resp = new String(datagramPacket.getData(), datagramPacket.getOffset(), datagramPacket.getLength());
+
+        datagramSocket.disconnect();
+//        注意到disconnect()也不是真正地断开连接，它只是清除了客户端DatagramSocket实例
+//        记录的远程服务器地址和端口号，这样，DatagramSocket实例就可以连接另一个服务器端
+        System.out.println("rec " + resp);
+    }
+}
+```
+#### Java Web
 
 计算机存储的当前时间，本质是一个不断增长的整数。
 ### 重写（Override） VS 重载（Overload）
