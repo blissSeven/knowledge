@@ -1,7 +1,10 @@
 # emoji
 :smile:
+
 :laughing:
+
 :blush:
+
 :smiley:
 :relaxed:
 :smirk:

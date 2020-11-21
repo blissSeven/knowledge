@@ -152,7 +152,14 @@
       - [网络编程](#网络编程)
         - [TCP](#tcp)
         - [UDP](#udp)
+        - [Http](#http)
+        - [RMI](#rmi)
       - [Java Web](#java-web)
+        - [Web](#web)
+        - [Servlet 入门](#servlet-入门)
+        - [Servlet进阶](#servlet进阶)
+        - [重定向与转发](#重定向与转发)
+        - [Session和Cookie](#session和cookie)
     - [重写（Override） VS 重载（Overload）](#重写override-vs-重载overload)
 ## 语法  
 ### 基础
@@ -3088,8 +3095,325 @@ public class UDPClient {
     }
 }
 ```
-#### Java Web
+##### Http
+HTTP请求由HTTP Header 和HTTP Body组成    
+HTTP Header
+* 请求方法 路径 HTTP版本
+* Host 域名
+* User-Agent 客户端自身标示信息
+* Accept 客户端能够接受的HTTP响应格式
+* Accept-Language 客户端接收的语言
 
+GET请求只有HTTP Header没有HTTP Body，参数都放在url上，以URL编码方式，且由于URL长度限制，参数个数有限制。
+```java
+GET /sync HTTP/1.1
+Host: 127.0.0.1:9614
+Connection: keep-alive
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.183 Safari/537.36
+Accept: */*
+Sec-Fetch-Site: none
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Accept-Encoding: gzip, deflate, br
+Accept-Language: zh-CN,zh;q=0.9,en;q=0.8
+Cookie: JSESSIONID=aaaf8YpcGdbNPdWbaqipx; GUID=51gUXRwhcyQCA05O1j8q
+```
+POST请求存在HTTP Body，参数都放在HTTP Body中，且Content-Type中可以设置编码格式   
+```java
+POST /video HTTP/1.1
+Host: 127.0.0.1:9614
+Connection: keep-alive
+Content-Length: 1576
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.183 Safari/537.36
+Content-Type: text/plain;charset=UTF-8
+Accept: */*
+Origin: chrome-extension://dkckaoghoiffdbomfbbodbbgmhjblecj
+Sec-Fetch-Site: none
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Accept-Encoding: gzip, deflate, br
+Accept-Language: zh-CN,zh;q=0.9,en;q=0.8
+Cookie: JSESSIONID=aaaf8YpcGdbNPdWbaqipx; GUID=51gUXRwhcyQCA05O1j8q
+
+```
+HTTP响应由HTTP Header 和HTTP Body组成    
+
+GET请求响应
+```java
+HTTP/1.1 200 OK
+Content-Length: 1601
+Content-Type: application/json
+Cache-Control: no-cache, no-store, must-revalidate
+Pragma: no-cache
+Expires: 0
+Content-Length: 1601
+```
+POST请求响应  
+```java
+HTTP/1.1 200 OK
+content-type: application/json
+Cache-Control: max-age=0, no-cache, must-revalidate
+Content-Length: 2511
+```
+##### RMI
+严格依赖于序列化，建议rpc框架   
+服务器和客户端必须共享一个接口
+```java
+public interface WorldClock extends Remote {
+    LocalDateTime getLocalDateTime(String zoneId) throws RemoteException;
+}
+
+
+public class WorldClockService implements WorldClock {
+
+    @Override
+    public LocalDateTime getLocalDateTime(String zoneId) throws RemoteException {
+        return LocalDateTime.now(ZoneId.of(zoneId)).withNano(0);
+    }
+}
+```
+提供服务者
+```java
+public class RMIServer {
+    public static void main(String[] args) throws RemoteException {
+        System.out.println("create World Remote Service");
+//       实例化一个WorldClock
+        WorldClock worldClock = new WorldClockService();
+//         // 将此服务转换为远程服务接口:
+        WorldClock skeleton = (WorldClock) UnicastRemoteObject.exportObject(worldClock, 0);
+//         // 将RMI服务注册到1099端口:
+        Registry registry = LocateRegistry.createRegistry(1099);
+        // 注册此服务，服务名为"WorldClock":
+        registry.rebind("WorldClock", skeleton);
+
+    }
+}
+```
+使用服务者
+```java
+public class RMIClient {
+    public static void main(String[] args) throws RemoteException, NotBoundException {
+        // 连接到服务器localhost，端口1099:
+        Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+        // 查找名称为"WorldClock"的服务并强制转型为WorldClock接口:
+        WorldClock worldClock = (WorldClock) registry.lookup("WorldClock");
+        // 正常调用接口方法:
+        LocalDateTime now = worldClock.getLocalDateTime("Asia/Shanghai");
+        // 打印调用结果:
+        System.out.println(now);
+    }
+}
+```
+#### Java Web
+##### Web
+HTTP服务器，只需要在tcp服务端，在handle接口中，处理HTTP请求，并返回HTTP响应  
+```java
+private void handle(InputStream input, OutputStream output) throws IOException {
+    System.out.println("Process new http request...");
+    var reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
+    var writer = new BufferedWriter(new OutputStreamWriter(output, StandardCharsets.UTF_8));
+    // 读取HTTP请求:
+    boolean requestOk = false;
+    String first = reader.readLine();
+    if (first.startsWith("GET / HTTP/1.")) {
+        requestOk = true;
+    }
+    for (;;) {
+        String header = reader.readLine();
+        if (header.isEmpty()) { // 读取到空行时, HTTP Header读取完毕
+            break;
+        }
+        System.out.println(header);
+    }
+    System.out.println(requestOk ? "Response OK" : "Response Error");
+    if (!requestOk) {
+        // 发送错误响应:
+        writer.write("HTTP/1.0 404 Not Found\r\n");
+        writer.write("Content-Length: 0\r\n");
+        writer.write("\r\n");
+        writer.flush();
+    } else {
+        // 发送成功响应:
+        String data = "<html><body><h1>Hello, world!</h1></body></html>";
+        int length = data.getBytes(StandardCharsets.UTF_8).length;
+        writer.write("HTTP/1.0 200 OK\r\n");
+        writer.write("Connection: close\r\n");
+        writer.write("Content-Type: text/html\r\n");
+        writer.write("Content-Length: " + length + "\r\n");
+        writer.write("\r\n"); // 空行标识Header和Body的分隔
+        writer.write(data);
+        writer.flush();
+    }
+}
+```
+##### Servlet 入门
+正常HTTP服务器，需要多线程的TCP服务，并在TCP连接中处理HTTP请求，发送HTTP响应。  
+处理TCP连接，解析HTTP协议底层交给现成的WEB服务器，只需将自己的程序跑在web服务器上。JavaEE提供了Servlet API，编写自己的Servlet处理HTTP请求，而Web服务器实现Servlet API接口 。 
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/21/12-53-36-8051def36321ef7385330475c53bb86b-20201121125336-f2fffe.png)  
+整个项目架构如图：      
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/21/13-42-31-2e364ae4a495dc97504e086505e7d343-20201121134231-124dd4.png)
+打包方式为war包，Java Web Application Archive
+
+```java
+@WebServlet(urlPatterns = "/")
+public class HelloWorld extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        resp.setContentType("text/html");
+        PrintWriter pw = resp.getWriter();
+        pw.write("<h1>Hello World!<h1>");
+        pw.flush();
+    }
+}
+```
+```xml
+  <groupId>com.dami</groupId>
+    <artifactId>NetworkTest</artifactId>
+    <packaging>war</packaging>
+    <version>1.0-SNAPSHOT</version>
+    <dependencies>
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>servlet-api</artifactId>
+            <version>3.0-alpha-1</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax</groupId>
+            <artifactId>javaee-api</artifactId>
+            <version>6.0-RC2</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+```
+支持Servlet API的服务器(Servlet 容器)常见有Tomcat，Jetty，将打包好的war包放在Tomcat的webapps目录下，后启动Tomcat即可。
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/21/13-47-22-639c2591cfb5b836c2f9f84459c66a93-20201121134722-a8daa9.png)   
+在IDEA的 ApplicationContext可以设置域名后的第一级path，对应浏览器的URL。
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/21/13-48-14-5765a1f0cf0379c385332835e16843bd-20201121134814-2f5453.png) 
+
+* **假设将hello.war放在webapps目录，那么第一级path为/hello，如果将hello.war更名为ROOT.war,那么第一级path为/**   
+* 启动Tomcat服务器实际上是启动Java虚拟机，执行Tomcat的main()方法，然后由Tomcat负责加载我们的.war文件，并创建一个HelloServlet实例，最后以多线程的模式来处理HTTP请求。如果Tomcat服务器收到的请求路径是/（假定部署文件为ROOT.war），就转发到HelloServlet并传入HttpServletRequest和HttpServletResponse两个对象
+
+在Servlet容器中运行的Servlet特点如下
+* 无法在代码中直接通过new创建Servlet实例，由Servlet容器自动创建Servlet实例
+* Servlet容器只会给每个Servlet类创建唯一实例
+* Servlet容器会使用多线程执行doGet() doPost()方法
+
+* Servlet中定义的实例变量会被多个线程同时访问，注意线程安全
+* HttpServletRequest 和HttpServletResponse 实例是由Servlet容器传入的局部变量，只能被当前线程访问，不存在多线程访问问题
+* 在doGet、doPost方法中，如果使用了ThreadLocal，但没有清理，那么它的状态有可能影响到下次的某个请求，Servlet容器可能使用线程池实现线程复用。
+
+* 嵌入式tomcat
+  
+```xml
+  <properties>
+    <tomcat.version>9.0.37</tomcat.version>
+  </properties>
+ <dependencies>
+    <dependency>
+      <groupId>org.apache.tomcat.embed</groupId>
+      <artifactId>tomcat-embed-core</artifactId>
+      <version>${tomcat.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.tomcat.embed</groupId>
+      <artifactId>tomcat-embed-jasper</artifactId>
+      <version>${tomcat.version}</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+```
+```java
+public class Main {
+    public static void main(String[] args) throws LifecycleException {
+        // 启动Tomcat:
+        Tomcat tomcat = new Tomcat();
+        tomcat.setPort(Integer.getInteger("port", 8081));
+        tomcat.getConnector();
+        // 创建webapp:
+        Context ctx = tomcat.addWebapp("", new File("src/main/webapp").getAbsolutePath());
+        WebResourceRoot resources = new StandardRoot(ctx);
+        resources.addPreResources(
+                new DirResourceSet(resources, "/WEB-INF/classes", new File("target/classes").getAbsolutePath(), "/"));
+        ctx.setResources(resources);
+        tomcat.start();
+        tomcat.getServer().await();
+    }
+}
+```
+无法初始化主类 Main 时，IDEA在Run/Debug Configurations -> Application -> Main -> Configuration -> Use classpath of module，勾选Include dependencies with “Provided” scope     
+https://blog.csdn.net/maimiho/article/details/105953165
+##### Servlet进阶
+一个Web App就是由一个、多个Servlet组成，每个Servlet通过注解说明自己处理的路径。 
+浏览器所有请求总是由WebServer先接收，再根据请求路径通过Dipatch路径分发到不同的Servlet，其中/会接手所有未匹配的路径,相当于/*  
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/21/16-47-27-7d4806bab1f5658aafce4d7ae6807bc0-20201121164727-9035ad.png)   
+
+* HttpServletRequest
+  * getMethod() 返回请求方法 'GET' 'POST'
+  * getRequestURI 返回请求路径，不包括请求参数  '/hello'
+  * getQueryString 返回请求参数 'name=bob&a=1'
+  * getParameter(name)返回请求参数，GET从url中读取，POST从body中读取
+  * getContentType 获取请求body的类型，'application/x-www-form-urlencoded'
+  * getContextPath 获取当前挂载webapp的路径，对于ROOT来说，为空''
+  * getCookies()返回请求携带的cookie
+  * getHeader(name) 获取指定的header
+  * getHeaderNames()返回所有Header名称
+  * getInputStream() 如果请求有body，打开一个输入流读取body
+  * getReader() 类似getInputStream,返回的是Reader
+  * getRemoteAddr()返回客户端的IP地址
+  * getScheme()返回协议类型 'http' 'https'
+  * set/getAttribute() 给当前HttpServletRequest对象附加多个key-value
+* HttpServletResponse
+  * setStatus(sc)：设置响应代码，默认是200；
+  * setContentType(type)：设置Body的类型，例如，"text/html"
+  * etCharacterEncoding(charset)：设置字符编码，例如，"UTF-8"；
+  * setHeader(name, value)：设置一个Header的值；
+  * addCookie(cookie)：给响应添加一个Cookie；
+  * ddHeader(name, value)：给响应添加一个Header，因为HTTP协议允许有多个相同的Header；
+  
+* **注意* * :exclamation:  
+* 写入响应时，需要通过getOutputStream()获取写入流，或者通过getWriter()获取字符流，二者只能获取其中一个      
+* 写入响应时，无需设置setContentLength，服务器会根据写入的字节数自动设置，如果写入的数据量很小，会先写入缓冲区，如果很大，服务器采用chunked编码让浏览器能识别数据结束符，从而不需要设置length头    
+* 写入后，调用flush，及时将缓冲区数据发送，而不要调用close,浏览器会复用TCP连接。    
+* 一个Servlet类在服务器中只有一个实现类，但是对个每个HTTP请求，服务器会使用多线程执行请求，doGet、doPost方法都是多线程执行的
+* 对于每个请求，服务器会创建唯一的HttpServletRequest和HttpServletResponse实例，只在当前处理线程有效，总是局部变量，不存在多线程共享问题
+##### 重定向与转发
+转发和重定向的区别在于，转发是在Web服务器内部完成的,转发的时候，浏览器的地址栏路径仍然是之前的，浏览器并不知道该请求在Web服务器内部实际上做了一次转发   
+
+* 重定向-发送请求时，浏览器返回一个重定向指令，告诉浏览器地址已经变化，使用新的URL再重新发送请求,返回一个302.
+  * 重定向有两种：一种是302响应，称为临时重定向，一种是301响应，称为永久重定向。两者的区别是，如果服务器发送301永久重定向响应，浏览器会缓存/hi到/hello这个重定向的关联，下次请求/hi的时候，浏览器就直接发送/hello请求了。
+  * ```java
+      @WebServlet(urlPatterns = "/hi")
+      public class RedirectServlet extends HttpServlet {
+          protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+              // 构造重定向的路径:
+              String name = req.getParameter("name");
+              String redirectToUrl = "/hello" + (name == null ? "" : "?name=" + name);
+              // 发送重定向响应:
+              resp.sendRedirect(redirectToUrl);
+
+              //永久重定向
+              //resp.setStatus(HttpServletResponse.SC_MOVED_PERMANENTLY); // 301
+              //resp.setHeader("Location", "/hello");
+          }
+      }
+      ```
+* 转发-内部转发，当Servlet处理请求时，可以自己不处理转发给其他的Servlet
+  * ```java
+      @WebServlet(urlPatterns = "/morning")
+    public class ForwardServlet extends HttpServlet {
+        protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+            req.getRequestDispatcher("/hello").forward(req, resp);
+        }
+    }
+     ```
+##### Session和Cookie
+HTTP协议无状态，服务器无法区分两个HTTP请求是否是同一个浏览器发送的。为跟踪用户状态，服务器向浏览器分配唯一一个ID（Session），以cookie形式发送到浏览器，浏览器之后访问总是附带此cookie，以此达到识别用户身份。
+* Session   
+基于唯一ID识别用户身份的机制称为Session,每个用户第一次访问服务器后，会自动获得一个Session ID。如果用户在一段时间内没有访问服务器，那么Session会自动失效，下次即使带着上次分配的Session ID访问，服务器也认为这是一个新用户，会分配新的Session ID。
+  * 
+* Cookie
 计算机存储的当前时间，本质是一个不断增长的整数。
 ### 重写（Override） VS 重载（Overload）
   * Override
@@ -3100,3 +3424,5 @@ public class UDPClient {
      * 被重载的方法可以声明新的异常或更广的检查异常
      * 被重载的方法可以改变访问修饰符
      * 被重载的方法可以改变返回类型
+
+
