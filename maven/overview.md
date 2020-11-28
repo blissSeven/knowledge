@@ -20,6 +20,9 @@
     - [模块管理](#模块管理)
     - [mvnw](#mvnw)
     - [发布artifact](#发布artifact)
+    - [不同环境打包不同配置](#不同环境打包不同配置)
+      - [不同的属性文件夹](#不同的属性文件夹)
+      - [不同的属性](#不同的属性)
 ## 依赖冲突
 `mvn dependency:tree`
 ## 命令
@@ -621,6 +624,101 @@ copy-dependencies---复制所有依赖项
   * `./mvnw clean package` linux/macos 下
 ### 发布artifact
 
+### 不同环境打包不同配置
+`mvn package -Pdev`
+#### 不同的属性文件夹
+**在src/main/resources目录下，新建dev、test、pro三个子目录，公共属性放在resources目录下**
+```xml
+<profiles>
+    <profile>
+        <!-- 本地开发环境 -->
+        <id>dev</id>
+        <properties>
+            <profiles.active>dev</profiles.active>
+        </properties>
+        <activation>
+            <activeByDefault>true</activeByDefault>
+        </activation>
+    </profile>
+    <profile>
+        <!-- 测试环境 -->
+        <id>test</id>
+        <properties>
+            <profiles.active>test</profiles.active>
+        </properties>
+    </profile>
+    <profile>
+        <!-- 生产环境 -->
+        <id>pro</id>
+        <properties>
+            <profiles.active>pro</profiles.active>
+        </properties>
+    </profile>
+</profiles>
+```
+在build脚本下，配置资源文件的目录，首先指定通用的配置文件的目录，其次指定某个环境下的目录。在激活指定的profile时，会加载指定目录下的配置文件，如当前激活的是pro profile，那么这个资源目录就是src/main/resources/pro
+```xml
+<build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <!-- 资源根目录排除各环境的配置，防止在生成目录中多余其它目录 -->
+                <excludes>
+                    <exclude>test/*</exclude>
+                    <exclude>pro/*</exclude>
+                    <exclude>dev/*</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <directory>src/main/resources/${profiles.active}</directory>
+            </resource>
+        </resources>
+    </build>
+```
+#### 不同的属性
+配置不同环境下的属性
+```xml
+ <profile>
+            <id>preview</id>
+            <activation>
+                <property>
+                    <name>preview</name>
+                    <value>true</value>
+                </property>
+            </activation>
+            <properties>
+                <configitem.path>internal/device_display_config/preview</configitem.path>
+            </properties>
+        </profile>
+        <profile>
+            <id>production</id>
+            <activation>
+                <property>
+                    <name>production</name>
+                    <value>true</value>
+                </property>
+            </activation>
+            <properties>
+                <configitem.path>internal/device_display_config</configitem.path>
+            </properties>
+        </profile>
+```
+build节点下设置资源路径
+```xml
+  <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources/</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+    </build>
+```
+通过properties文件下的通配符实现不同环境下加载不同配置
+```java
+configitem.path = ${configitem.path}
+name=${configitem.path}
+```
 
 
 

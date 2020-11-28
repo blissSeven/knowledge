@@ -158,8 +158,11 @@
         - [Web](#web)
         - [Servlet 入门](#servlet-入门)
         - [Servlet进阶](#servlet进阶)
-        - [重定向与转发](#重定向与转发)
-        - [Session和Cookie](#session和cookie)
+          - [重定向与转发](#重定向与转发)
+          - [Session和Cookie](#session和cookie)
+        - [Listener](#listener)
+      - [Spring](#spring)
+        - [IOC容器](#ioc容器)
     - [重写（Override） VS 重载（Overload）](#重写override-vs-重载overload)
 ## 语法  
 ### 基础
@@ -2747,16 +2750,17 @@ list.stream().map(Fruit::new).collect(Collectors.toList()).forEach(System.out::p
         }
     }
 ```
-#### Stream
-||`java.io` |`java.util.stream`|
-|:-:|:-:|:-:|:-:|
-|存储|顺序读写的byte或char|顺序输出的任意java对象实例|
-|用途|序列化至文件或网络|内存计算\业务逻辑|
-----
-||java.util.list|java.util.stream|
-|:-:|:-:|:-:|:-:|
-|元素|已分配并存储在内存|可能未分配，实时计算|
-|用途|操作已存在的对象|惰性计算|
+#### Stream   
+* Stream流同IO流的对比
+  ||`java.io` |`java.util.stream`|
+  |:-:|:-:|:-:|:-:|
+  |存储|顺序读写的byte或char|顺序输出的任意java对象实例|
+  |用途|序列化至文件或网络|内存计算\业务逻辑|
+  ----
+  ||java.util.list|java.util.stream|
+  |:-:|:-:|:-:|:-:|
+  |元素|已分配并存储在内存|可能未分配，实时计算|
+  |用途|操作已存在的对象|惰性计算|
 ##### 创建 Stream
 * `Stream.of`
   * ```java
@@ -3248,8 +3252,8 @@ private void handle(InputStream input, OutputStream output) throws IOException {
 ```
 ##### Servlet 入门
 正常HTTP服务器，需要多线程的TCP服务，并在TCP连接中处理HTTP请求，发送HTTP响应。  
-处理TCP连接，解析HTTP协议底层交给现成的WEB服务器，只需将自己的程序跑在web服务器上。JavaEE提供了Servlet API，编写自己的Servlet处理HTTP请求，而Web服务器实现Servlet API接口 。 
-![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/21/12-53-36-8051def36321ef7385330475c53bb86b-20201121125336-f2fffe.png)  
+处理TCP连接，解析HTTP协议底层交给现成的WEB服务器，只需将自己的程序跑在web服务器上。JavaEE提供了Servlet API，编写自己的Servlet处理HTTP请求，而Web服务器实现Servlet API接口 。   
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/21/12-53-36-8051def36321ef7385330475c53bb86b-20201121125336-f2fffe.png)     
 整个项目架构如图：      
 ![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/21/13-42-31-2e364ae4a495dc97504e086505e7d343-20201121134231-124dd4.png)
 打包方式为war包，Java Web Application Archive
@@ -3378,7 +3382,7 @@ https://blog.csdn.net/maimiho/article/details/105953165
 * 写入后，调用flush，及时将缓冲区数据发送，而不要调用close,浏览器会复用TCP连接。    
 * 一个Servlet类在服务器中只有一个实现类，但是对个每个HTTP请求，服务器会使用多线程执行请求，doGet、doPost方法都是多线程执行的
 * 对于每个请求，服务器会创建唯一的HttpServletRequest和HttpServletResponse实例，只在当前处理线程有效，总是局部变量，不存在多线程共享问题
-##### 重定向与转发
+###### 重定向与转发
 转发和重定向的区别在于，转发是在Web服务器内部完成的,转发的时候，浏览器的地址栏路径仍然是之前的，浏览器并不知道该请求在Web服务器内部实际上做了一次转发   
 
 * 重定向-发送请求时，浏览器返回一个重定向指令，告诉浏览器地址已经变化，使用新的URL再重新发送请求,返回一个302.
@@ -3408,12 +3412,647 @@ https://blog.csdn.net/maimiho/article/details/105953165
         }
     }
      ```
-##### Session和Cookie
+###### Session和Cookie
 HTTP协议无状态，服务器无法区分两个HTTP请求是否是同一个浏览器发送的。为跟踪用户状态，服务器向浏览器分配唯一一个ID（Session），以cookie形式发送到浏览器，浏览器之后访问总是附带此cookie，以此达到识别用户身份。
 * Session   
-基于唯一ID识别用户身份的机制称为Session,每个用户第一次访问服务器后，会自动获得一个Session ID。如果用户在一段时间内没有访问服务器，那么Session会自动失效，下次即使带着上次分配的Session ID访问，服务器也认为这是一个新用户，会分配新的Session ID。
-  * 
+基于唯一ID识别用户身份的机制称为Session,每个用户第一次访问服务器后，会自动获得一个Session ID。如果用户在一段时间内没有访问服务器，那么Session会自动失效，下次即使带着上次分配的Session ID访问，服务器也认为这是一个新用户，会分配新的Session ID。    
+服务器通过Cookie的`JSESSIONID`识别Session。第一次调用`getSession`时，Servlet容器自动创建一个Session ID，后通过JSESSION的Cookie发送给服务器
+```html
+Cookie: Idea-55166956=29b77da5-2002-44d5-a2ff-08eb2d71099b; Hm_lvt_3944d5fe13ed7bea2ad90c9bca1b1196=1596503132; Hm_lpvt_3944d5fe13ed7bea2ad90c9bca1b1196=1596503166; JSESSIONID=F3582F3F809F2B5BAC7AA669DDF5665A
+```
+Java EE Servlet 通过HttpSession 类提供了对Session的支持
+  * 将数据存储在Session中
+    ```java
+          @WebServlet(urlPatterns = "/signin")
+      public class SignInServlet extends HttpServlet {
+          private static final Map<String, String> users = new HashMap<>();
+          static{
+              users.put("bob","bob123");
+              users.put("alice","alice123");
+          }
+          @Override
+          protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+              resp.setContentType("text/html");
+              PrintWriter pw = resp.getWriter();
+
+              pw.write("<h1>Sign In</h1>");
+              pw.write("<form action=\"/signin\" method=\"post\">");
+              pw.write("<p>Username: <input name=\"username\"></p>");
+              pw.write("<p>Password: <input name=\"password\" type=\"password\"></p>");
+              pw.write("<p><button type=\"submit\">Sign In</button> <a href=\"/\">Cancel</a></p>");
+              pw.write("</form>");
+              pw.flush();
+          }
+          @Override
+          protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+              String name = req.getParameter("username");
+              String password = req.getParameter("password");
+              String expectedPassword = users.get(name.toLowerCase());
+              System.out.println("expectedPassword "+expectedPassword);
+              System.out.println("password "+password);
+              System.out.println("name "+name);
+
+              if (expectedPassword != null && expectedPassword.equals(password)) {
+                  // 登录成功: 将用户名称存储到Session中
+                  req.getSession().setAttribute("user", name);
+                  resp.sendRedirect("/");
+              } else {
+                  resp.sendError(HttpServletResponse.SC_FORBIDDEN);
+              }
+          }
+      }
+     ```
+* Session 使用
+   ```java
+      @WebServlet(urlPatterns = "/")
+    public class IndexServlet extends HttpServlet {
+        @Override
+        protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+          //取出Session中某个属性
+            String user = (String) req.getSession().getAttribute("user");
+            resp.setContentType("text/html");
+            resp.setCharacterEncoding("utf-8");
+            resp.setHeader("X-Powered-By", "JavaEE Servlet");
+
+            PrintWriter pw = resp.getWriter();
+            pw.write("<h1> Welcome," + (user != null ? user : "Guest") + "</h1>");
+            if (user != null) {
+                pw.write("<p><a href= \"/signin\">Sign In</p>");
+            } else {
+                pw.write("<p><a href= \"/signin\">Sign In</p>");
+            }
+            pw.flush();
+        }
+    }
+   ```
+* Session 剔除某个属性
+   ```java
+      @WebServlet(urlPatterns = "/signout")
+  public class SignOutServlet {
+      protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+          req.getSession().removeAttribute("user");
+          resp.sendRedirect("/");
+      }
+  }
+   ```
+* 总结
+  * JSESSIONID由Servlet容器自动创建，目的为维持一个浏览器会话，和登录逻辑没有关系
+  * 登入登出逻辑根据HttpSession 是否存在一个user判断的，登出后，SessionID不会改变，
+  * 使没有登录功能，仍然可以使用HttpSession追踪用户，例如，放入一些用户配置信息等
+  * 也可以通过隐藏表单、URL末尾附加ID等机制实现Session
+  * 无状态集群的Web Server时，会导致Server1的Session在Server2....等不存在
+    * 所有Web Server之间进行Session复制
+    * 采用粘滞会话（Sticky Session）机制，即反向代理在转发请求的时候，总是根据JSESSIONID的值判断，相同的JSESSIONID总是转发到固定的Web Server，但这需要反向代理的支持
+
+
 * Cookie
+HttpSession本质上是提供一个名为`JSESSIONID`的Cookie来跟踪用户会话的，除此Cookie外，其他名称Cookie可以任意使用。
+  ```html
+  Cookie: Idea-55166956=29b77da5-2002-44d5-a2ff-08eb2d71099b; Hm_lvt_3944d5fe13ed7bea2ad90c9bca1b1196=1596503132; Hm_lpvt_3944d5fe13ed7bea2ad90c9bca1b1196=1596503166; JSESSIONID=55694CA76D84458F25999D8BA202E965; lang=en
+  ```
+  ```java
+      @WebServlet(urlPatterns = "/pref")
+    public class LanguageServlet extends HttpServlet {
+        private static final Set<String> LANGUAGES = new HashSet<>();
+        static {
+            LANGUAGES.add("en");
+            LANGUAGES.add("zh");
+        }
+
+        @Override
+        protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+            String lang = req.getParameter("lang");
+            if (LANGUAGES.contains(lang)) {
+                // 创建一个新的Cookie:
+                Cookie cookie = new Cookie("lang", lang);
+    // 该Cookie生效的路径范围,浏览器根据此前缀决定是否发送Cookie,
+    // 如果一个Cookie调用了setPath("/user/")，那么浏览器只有在请求以/user/开头的路径时才会附加此Cookie
+                cookie.setPath("/");
+                // 该Cookie有效期:
+                cookie.setMaxAge(8640000); // 8640000秒=100天
+                // 将该Cookie添加到响应:
+                resp.addCookie(cookie);
+            }
+            resp.sendRedirect("/");
+        }
+    }
+  ```
+  读取Session
+  ```java
+    private String parseLanguageFromCookie(HttpServletRequest req) {
+        // 获取请求附带的所有Cookie:
+        Cookie[] cookies = req.getCookies();
+        // 如果获取到Cookie:
+        if (cookies != null) {
+            // 循环每个Cookie:
+            for (Cookie cookie : cookies) {
+                // 如果Cookie名称为lang:
+                if (cookie.getName().equals("lang")) {
+                    // 返回Cookie的值:
+                    return cookie.getValue();
+                }
+            }
+        }
+        // 返回默认值:
+        return "en";
+    }
+##### JSP
+* JSP本质是是一个Servlet
+* `<%-- --%>`之间为注释
+* `<%   %>`之间为java代码
+* `<%=  %>`可以输出一个变量的值
+* `out` 内置变量表示HttpServletResponse的PrintWriter
+* `session`内置变量表示当前`HttpSession`
+* `request` 表示`HttpServletRequest`
+* 访问JSP页面时，直接指定完整路径。例如，http://localhost:8080/hello.jsp
+* `<%@ page import="java.io.*" %>` 导入其他类
+* `<%@ include file="header.jsp"%>` 导入其他jsp文件
+* `<c:out value = "${sessionScope.user.name}"/>` JSP tag
+
+##### MVC
+各个Servlet负责对应路径的请求，此外，一个DispatcherServlet拦截所有的请求，并将响应的请求根据路径分配到相应的Servlet，Servlet返回一个ModelAndView，由渲染引擎渲染。   
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/27/20-02-58-b1a035c9acdc761bfb895b4fce220777-20201127200258-41bd67.png)
+* DispatcherServlet
+维护一个路径到Servlet的映射，可以通过反射扫描所有带`Post Get`注解请求的Controller类，获取注解的属性已经响应Controller类的`doGet doPost`Method的属性        
+  ```java
+  class GetDispatcher {
+      Object instance; // Controller实例
+      Method method; // Controller方法
+      String[] parameterNames; // 方法参数名称
+      Class<?>[] parameterClasses; // 方法参数类型
+  }
+  ```
+  通过反射获得 每个controller类Method对应的Path，以及相应的GetPatcher(Controller实例，Method实例，参数名字，参数类型)。在相应的GetPatcher里，根据参数名从Request接口获得参数值，并根据参数类型实例化参数，之后根据Controller实例，method instance以及参数值，调用方法。
+  ```java
+    class GetDispatcher {
+      ...
+      public ModelAndView invoke(HttpServletRequest request, HttpServletResponse response) {
+          Object[] arguments = new Object[parameterClasses.length];
+          for (int i = 0; i < parameterClasses.length; i++) {
+              String parameterName = parameterNames[i];
+              Class<?> parameterClass = parameterClasses[i];
+              if (parameterClass == HttpServletRequest.class) {
+                  arguments[i] = request;
+              } else if (parameterClass == HttpServletResponse.class) {
+                  arguments[i] = response;
+              } else if (parameterClass == HttpSession.class) {
+                  arguments[i] = request.getSession();
+              } else if (parameterClass == int.class) {
+                  arguments[i] = Integer.valueOf(getOrDefault(request, parameterName, "0"));
+              } else if (parameterClass == long.class) {
+                  arguments[i] = Long.valueOf(getOrDefault(request, parameterName, "0"));
+              } else if (parameterClass == boolean.class) {
+                  arguments[i] = Boolean.valueOf(getOrDefault(request, parameterName, "false"));
+              } else if (parameterClass == String.class) {
+                  arguments[i] = getOrDefault(request, parameterName, "");
+              } else {
+                  throw new RuntimeException("Missing handler for type: " + parameterClass);
+              }
+          }
+          return (ModelAndView) this.method.invoke(this.instance, arguments);
+      }
+
+      private String getOrDefault(HttpServletRequest request, String name, String defaultValue) {
+          String s = request.getParameter(name);
+          return s == null ? defaultValue : s;
+      }
+  }
+    ```
+    渲染引擎，根据返回的ModelAndView的View查找对应的js文件，以及根据Model进行数据填充，并返回。  
+  ```
+          public class ViewEngine {
+          public void render(ModelAndView mv, Writer writer) throws IOException {
+              String view = mv.view;
+              Map<String, Object> model = mv.model;
+              // 根据view找到模板文件:
+              Template template = getTemplateByPath(view);
+              // 渲染并写入Writer:
+              template.write(writer, model);
+          }
+        }
+  ```
+  一个完整的DispatcherServlet
+    ```java
+      public class DispatcherServlet extends HttpServlet {
+      ...
+      @Override
+      protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+          resp.setContentType("text/html");
+          resp.setCharacterEncoding("UTF-8");
+          String path = req.getRequestURI().substring(req.getContextPath().length());
+          // 根据路径查找GetDispatcher:
+          GetDispatcher dispatcher = this.getMappings.get(path);
+          if (dispatcher == null) {
+              // 未找到返回404:
+              resp.sendError(404);
+              return;
+          }
+          // 调用Controller方法获得返回值:
+          ModelAndView mv = dispatcher.invoke(req, resp);
+          // 允许返回null:
+          if (mv == null) {
+              return;
+          }
+          // 允许返回`redirect:`开头的view表示重定向:
+          if (mv.view.startsWith("redirect:")) {
+              resp.sendRedirect(mv.view.substring(9));
+              return;
+          }
+          // 将模板引擎渲染的内容写入响应:
+          PrintWriter pw = resp.getWriter();
+          this.viewEngine.render(mv, pw);
+          pw.flush();
+      }
+    }
+    ```
+##### Filter
+* Filter是一种对HTTP请求进行预处理的组件，它可以构成一个处理链，使得公共处理代码能集中到一起；  
+* Filter适用于日志、登录检查、全局设置等；
+* 设计合理的URL映射可以让Filter链更清晰  
+Filter可以作用在某一个路径之前拦截请求，类似DispatcherServlet，目的是对某个路径下的请求做拦截  
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/27/20-30-44-135d32125be13ef5211a7303ed461726-20201127203044-c5ae67.png)    
+在doFilter()方法内部，要继续处理请求，必须调用chain.doFilter()   
+```java
+@WebFilter(urlPatterns = "/*")//所有路径都过滤
+public class EncodingFilter implements Filter {
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
+        System.out.println("EncodingFilter:doFilter");
+        request.setCharacterEncoding("UTF-8");
+        response.setCharacterEncoding("UTF-8");
+        chain.doFilter(request, response);
+    }
+}
+```
+Servlet规范并没有对@WebFilter注解标注的Filter规定顺序。如果一定要给每个Filter指定顺序，就必须在web.xml文件中对这些Filter再配置一遍   
+```java
+  @WebFilter("/user/*")
+  public class AuthFilter implements Filter {
+      public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+              throws IOException, ServletException {
+          System.out.println("AuthFilter: check authentication");
+          HttpServletRequest req = (HttpServletRequest) request;
+          HttpServletResponse resp = (HttpServletResponse) response;
+          if (req.getSession().getAttribute("user") == null) {
+              // 未登录，自动跳转到登录页:
+              System.out.println("AuthFilter: not signin!");
+              resp.sendRedirect("/signin");//后续的Servlet不会再继续处理该请求
+          } else {
+              // 已登录，继续处理:
+              chain.doFilter(request, response);
+          }
+      }
+  }
+```
+```xml
+@WebFilter(filterName = "EncodingFilter")
+@WebFilter(filterName = "LogFilter")
+<!-- 在web.xml配置如下 -->
+<!-- 过滤顺序：谁的写在上面，谁先被过滤 -->
+  <filter-mapping>
+    <filter-name>EncodingFilter</filter-name>
+    <url-pattern>/*</url-pattern> 
+  </filter-mapping>
+
+  <filter-mapping>
+    <filter-name>LogFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+```
+通过Filter修改请求   
+**对HttpServletRequest进行读取时，只能读取一次。如果Filter调用getInputStream()读取了一次数据，后续Servlet处理时，再次读取，将无法读到任何数**
+```java
+@WebFilter("/upload/*")
+public class ValidateUploadFilter implements Filter {
+
+	@Override
+	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+			throws IOException, ServletException {
+		HttpServletRequest req = (HttpServletRequest) request;
+		HttpServletResponse resp = (HttpServletResponse) response;
+		String digest = req.getHeader("Signature-Method");
+		String signature = req.getHeader("Signature");
+		if (digest == null || digest.isEmpty() || signature == null || signature.isEmpty()) {
+			sendErrorPage(resp, "Missing signature.");
+			return;
+		}
+		MessageDigest md = getMessageDigest(digest);
+		InputStream input = new DigestInputStream(request.getInputStream(), md);
+		ByteArrayOutputStream output = new ByteArrayOutputStream();
+		byte[] buffer = new byte[1024];
+		for (;;) {
+			int len = input.read(buffer);
+			if (len == -1) {
+				break;
+			}
+			output.write(buffer, 0, len);
+		}
+		String actual = toHexString(md.digest());
+		if (!signature.equals(actual)) {
+			sendErrorPage(resp, "Invalid signature. " + actual);
+			return;
+		}
+		chain.doFilter(new ReReadableHttpServletRequest(req, output.toByteArray()), response);//需要借助ReReadableHttpServletRequest代理，再次生成InputStream
+    //chain.doFilter(req,response);//如果这样做，会导致后续的req读取不到数据
+	}
+
+	private String toHexString(byte[] digest) {
+		StringBuilder sb = new StringBuilder();
+		for (byte b : digest) {
+			sb.append(String.format("%02x", b));
+		}
+		return sb.toString();
+	}
+
+	private MessageDigest getMessageDigest(String name) throws ServletException {
+		try {
+			return MessageDigest.getInstance(name);
+		} catch (NoSuchAlgorithmException e) {
+			throw new ServletException(e);
+		}
+	}
+
+	private void sendErrorPage(HttpServletResponse resp, String errorMessage) throws IOException {
+		resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+		PrintWriter pw = resp.getWriter();
+		pw.write("<html><body><h1>");
+		pw.write(errorMessage);
+		pw.write("</h1></body></html>");
+		pw.flush();
+	}
+}
+```
+通过现有的request，以及拦截到的data，伪造一个HttpServletRequest,对`getInputStream``getReader`返回一个新的流。
+```java
+class ReReadableHttpServletRequest extends HttpServletRequestWrapper {
+
+	private byte[] body;
+	private boolean open = false;
+
+	public ReReadableHttpServletRequest(HttpServletRequest request, byte[] body) {
+		super(request);
+		this.body = body;
+	}
+
+	@Override
+	public ServletInputStream getInputStream() throws IOException {
+		if (open) {
+			throw new IllegalStateException("Cannot re-open input stream!");
+		}
+		open = true;
+		return new ServletInputStream() {
+			private int offset = 0;
+
+			@Override
+			public boolean isFinished() {
+				return offset >= body.length;
+			}
+
+			@Override
+			public boolean isReady() {
+				return true;
+			}
+
+			@Override
+			public void setReadListener(ReadListener listener) {
+			}
+
+			@Override
+			public int read() throws IOException {
+				if (offset >= body.length) {
+					return -1;
+				}
+				int n = body[offset] & 0xff;
+				offset++;
+				return n;
+			}
+		};
+	}
+
+	@Override
+	public BufferedReader getReader() throws IOException {
+		if (open) {
+			throw new IllegalStateException("Cannot re-open reader!");
+		}
+		open = true;
+		return new BufferedReader(new InputStreamReader(getInputStream(), "UTF-8"));
+	}
+}
+```
+Filter修改响应
+对应于处理请求很耗时，但是每次返回都同样结果的情况，可以通过Filter将响应缓存，后续的响应直接返回缓存。
+```java
+@WebFilter("/slow/*")
+public class CacheFilter implements Filter {
+
+	private Map<String, byte[]> cache = new ConcurrentHashMap<>();
+
+	@Override
+	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+			throws IOException, ServletException {
+		HttpServletRequest req = (HttpServletRequest) request;
+		HttpServletResponse resp = (HttpServletResponse) response;
+		String url = req.getRequestURI();
+		byte[] data = this.cache.get(url);
+		resp.setHeader("X-Cache-Hit", data == null ? "No" : "Yes");
+		if (data == null) {
+			//创建一个虚拟的HttpServletResponse，将实际的Servlet处理后的响应传递到此response中，获得缓存
+			CachedHttpServletResponse wrapper = new CachedHttpServletResponse(resp);
+			chain.doFilter(request, wrapper);
+			data = wrapper.getContent();
+			cache.put(url, data);
+		}
+		ServletOutputStream output = resp.getOutputStream();
+		output.write(data);
+		output.flush();
+	}
+}
+```
+```java
+class CachedHttpServletResponse extends HttpServletResponseWrapper {
+
+	private boolean open = false;
+	private ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+	public CachedHttpServletResponse(HttpServletResponse response) {
+		super(response);
+	}
+
+	@Override
+	public PrintWriter getWriter() throws IOException {
+		if (open) {
+			throw new IllegalStateException("Cannot re-open writer!");
+		}
+		open = true;
+//		return new PrintWriter(output, false, StandardCharsets.UTF_8);
+		return new PrintWriter(output, false);
+	}
+
+	@Override
+	public ServletOutputStream getOutputStream() throws IOException {
+		if (open) {
+			throw new IllegalStateException("Cannot re-open output stream!");
+		}
+		open = true;
+		return new ServletOutputStream() {
+			@Override
+			public boolean isReady() {
+				return true;
+			}
+
+			@Override
+			public void setWriteListener(WriteListener listener) {
+			}
+
+			@Override
+			public void write(int b) throws IOException {
+				output.write(b);
+			}
+		};
+	}
+
+	public byte[] getContent() {
+		return output.toByteArray();
+	}
+}
+```
+##### Listener
+标注为`WebListener`且实现了特定接口的类会被Web服务器自动初始化   
+* ServletContextListener
+* HttpSessionListener 监听HttpSession的创建和销毁
+* ServletRequestListener 监听ServletRequest的创建和销毁
+* ServletRequestAttributeListener 监听ServletRequest请求的属性变化事件(调用ServletRequest.setAttribute方法)
+* ServletContextAttributeListener 监听ServletContext的属性变化事件(ServletContext.setAttribute)
+  ```java
+  @WebListener
+public class AppListener implements ServletContextListener {
+    @Override
+    public void contextInitialized(ServletContextEvent sce) {
+        System.out.println("Web init");
+    }
+
+    @Override
+    public void contextDestroyed(ServletContextEvent sce) {
+        System.out.println("Web destory");
+    }
+}
+  ```
+一个web服务器可以运行多个webapp，每个webapp,服务器都会创建全局唯一的ServletContext实例    
+ServletContext最大作用就是设置和共享全局信息，ServletRequest、HttpSession等对象提供`getServletContext`接口    
+ServletContext还提供了动态添加Servlet、Filter、Listener等功能，它允许应用程序在运行期间动态添加一个组件
+```
+##### 部署
+请求http:localhost:8080/news/main/list.jsp   
+`request.getContextPath`返回站点的根路径即项目名  /news
+`request.getServletPath`/main/list.jsp
+
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/28/13-36-36-5fbe523114de805c1a6f2957ce554972-20201128133636-167250.png)
+静态资源放在/static目录，有些Web服务器会自动为我们加一个专门负责处理静态文件的Servlet，但如果IndexServlet映射路径为/，会屏蔽掉处理静态文件的Servlet映射。因此，我们需要自己编写一个处理静态文件的FileServlet
+```java
+@WebServlet(urlPatterns = "/static/*")
+public class FileServlet extends HttpServlet {
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        ServletContext ctx = req.getServletContext();
+        // RequestURI包含ContextPath,需要去掉:
+        String urlPath = req.getRequestURI().substring(ctx.getContextPath().length());
+        // 获取真实文件路径:
+        String filepath = ctx.getRealPath(urlPath);
+        if (filepath == null) {
+            // 无法获取到路径:
+            resp.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+        Path path = Paths.get(filepath);
+        if (!path.toFile().isFile()) {
+            // 文件不存在:
+            resp.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+        // 根据文件名猜测Content-Type:
+        String mime = Files.probeContentType(path);
+        if (mime == null) {
+            mime = "application/octet-stream";
+        }
+        resp.setContentType(mime);
+        // 读取文件并写入Response:
+        OutputStream output = resp.getOutputStream();
+        try (InputStream input = new BufferedInputStream(new FileInputStream(filepath))) {
+            input.transferTo(output);
+        }
+        output.flush();
+    }
+}
+```
+但是，运行Web的应用程序通常都业务系统，称业务服务器，不擅长处理静态资源，也不适合直接暴露给用户。so，在生产环境部署时，利用nginx服务器充当反向代理和静态服务器，只有动态请求才放行给应用服务器。  
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/28/13-40-37-1269b23afc08c1aaf225b40b9f4c72dc-20201128134037-dedf3c.png)
+```nginx
+<!-- 静态nginx服务器配置如下 -->
+server {
+    listen 80;
+
+    server_name www.local.liaoxuefeng.com
+
+    # 静态文件根目录:
+    root /path/to/src/main/webapp;
+
+    access_log /var/log/nginx/webapp_access_log;
+    error_log  /var/log/nginx/webapp_error_log;
+
+    # 处理静态文件请求:
+    location /static {
+    }
+
+    # 处理静态文件请求:
+    location /favicon.ico {
+    }
+
+    # 不允许请求/WEB-INF:
+    location /WEB-INF {
+        return 404;
+    }
+
+    # 其他请求转发给Tomcat:
+    location / {
+        proxy_pass       http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+用Nginx配合Tomcat服务器，可以充分发挥Nginx作为网关的优势，既可以高效处理静态文件，也可以把https、防火墙、限速、反爬虫等功能放到Nginx中，使得我们自己的WebApp能专注于业务逻辑
+#### Spring
+##### IOC容器
+容器-为某种特定组件的运行提供必要支持的一个软件环境。Tomcat，Servlet容器。
+IOC容器可以管理轻量的JavaBean组件，提供包括组件的生命周期管理、配置和组装服务、AOP支持，以及建立在AOP基础上的声明式事务服务等底层服务。  
+IOC---Inversion of Control 控制反转，也称依赖注入(Dependency Injection)，将组件的创建+配置与组件的使用分离，由IOC容器负责管理组件的声明周期。
+* 谁创建组件
+* 谁负责根据依赖关系组装组件
+* 销毁时，如何按照依赖顺序依次销毁
+
+```java
+public class BookService {
+    private DataSource dataSource;
+
+    public void setDataSource(DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
+}
+```
+```xml
+<beans>
+    <bean id="dataSource" class="HikariDataSource" />
+    <bean id="bookService" class="BookService">
+        <property name="dataSource" ref="dataSource" />
+    </bean>
+    <bean id="userService" class="UserService">
+        <property name="dataSource" ref="dataSource" />
+    </bean>
+</beans>
+```
+
+
 计算机存储的当前时间，本质是一个不断增长的整数。
 ### 重写（Override） VS 重载（Overload）
   * Override
