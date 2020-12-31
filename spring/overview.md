@@ -245,18 +245,296 @@ public class AppConfig {
             }
         }
    ```
-* 使用FactoryBean
+* 使用FactoryBean  
+Spring允许定义一个工厂，由工厂创建真正的bean.Spring 。当一个Bean实现了FactoryBean接口后，Spring会先实例化这个工厂，然后调用`getObject`创建真正的Bean,`getObjectType`可以制定创建的Bean类型，***因为指定类型不一定与实际类型一致，可以是接口或抽象类***。   
+如果定义了FactoryBean,为了和普通的Bean区分开，通常以`xxxFactoryBean`命名。
+    ```java
+    @Component
+    public class ZoneIdFactoryBean implements FactoryBean<ZoneId>{
+        String zone = "z";
+        @Override
+        public ZoneId getObject() throws Exception{
+            return ZoneId.of(zone);
+        }
+        @Override
+        public Class<?> getObjectType(){
+            return  ZoneId.class;
+        }
+    }
+    ```
+##### 使用Resource
+将Resource下的文件等资源文件以Bean的形式自动注入,之后`resource.getInputStream`就可以获取到输入流
+```java
+@Component
+public class AppService {
+    @Value("classpath:/logo.txt")
+    private Resource resource;
 
-针对设备图标部署繁琐的部署流程，设计并实现了一个设备图标自动部署后台管理工具
-针对放大器的统计需求，结合现有统计方案，设计并实现了放大器日活、激活统计80多项作业，并协同米家参与了放大器数据差异性调查，负责对接米家相关数据
-针对多个集群间设备重复激活问题，通过对现有统计逻辑的修补，实现去重后的各个集群间的数据统计，提高统计数据的精确性10-20%
+    private String logo;
 
+    @PostConstruct
+    public void init() throws IOException {
+        try (var reader = new BufferedReader(
+                new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8))) {
+            this.logo = reader.lines().collect(Collectors.joining("\n"));
+        }
+    }
+}
+```
+##### 注入Property配置信息
+* 直接从property文件中读取
+  *   ```java
+        @Configuration
+        @ComponentScan
+        @PropertySource("app.properties")
+        public class AppConfig{
+            @Value("${app.zone}")//取app.zone 为key，不存在则报错
+            String zoneId;
 
-1.编写代码要有一定的规范，码出高效，码出质量
-2.做工具的制造者，不做重复低效工作
-3.技术上保持学习
-4.多加强沟通，明确问题，理清思路再行动
+            @Value("${app.host:8080}")//取key为app.host 不存在则默认值8080
+            String host;
+        }
+        //   传参
+                @Bean
+                ZoneId createZoneId(@Value("${app.zone:Z}") String zoneId){
 
+                }
+       ```
+* 借助一个中间Bean  
+多个Bean可以使用同一个中间Bean的配置，统一修改
+  ```java
+        @Component
+        public class SmtpConfig {
+            @Value("${smtp.host}")
+            private String host;
 
+            @Value("${smtp.port:25}")
+            private int port;
 
-{"zh_TW":{"data_url":"https://cdn.cnbj1.fds.api.mi-img.com/miwifi/34d861c3-0cae-4977-8ab9-ec6e48c5a1c8.txt?GalaxyAccessKeyId=AKN4YH6B3OTPPRKHHA&Expires=1913020109925&Signature=Bc/dWcggfmEvmkHoO7P3bNlxDK0=","data_md5":"18cba028a6ee4587fe4515d6af4c8eb8","ts":1596796110144},"zh_HK":{"data_url":"https://cdn.cnbj1.fds.api.mi-img.com/miwifi/4447e5bc-a2f1-401b-beab-fc634e61c150.txt?GalaxyAccessKeyId=AKN4YH6B3OTPPRKHHA&Expires=1913020123998&Signature=mpKhReS0wkRXxISuZ9NUJs4cvZc=","data_md5":"87866afde7b77669324fe9c035054e6c","ts":1596796124000},"ko":{"data_url":"https://cdn.cnbj1.fds.api.mi-img.com/miwifi/c4dfe7e8-f7f3-480f-9727-7eede1bb59f5.txt?GalaxyAccessKeyId=AKN4YH6B3OTPPRKHHA&Expires=1913020124130&Signature=boUjVw5LmXbvv6HbUUHF5By/i5I=","data_md5":"5a4256fd31d6227982e6d74aeaf1e444","ts":1596796124132},"en":{"data_url":"https://cdn.cnbj1.fds.api.mi-img.com/miwifi/5a973c62-2a74-4297-b1ab-cb212d320f8d.txt?GalaxyAccessKeyId=AKN4YH6B3OTPPRKHHA&Expires=1913020124326&Signature=tPIewjiGqL/8k337di0lcQcn/9s=","data_md5":"3a68a846c08e39b0a54b1a5863042c7a","ts":1596796124327},"zh_CN":{"data_url":"https://cdn.cnbj1.fds.api.mi-img.com/miwifi/fd289c07-0a1a-4518-90a1-c9538403df46.txt?GalaxyAccessKeyId=AKN4YH6B3OTPPRKHHA&Expires=1913020124525&Signature=l01moTUQw5WElmpkEAuoEL24J6A=","data_md5":"a7b02ec77d3d3434001781eceeff669e","ts":1596796124526}}
+            public String getHost() {
+                return host;
+            }
+
+            public int getPort() {
+                return port;
+            }
+        }
+        @Component
+        public class MailService{
+            @Value("#{smtpConfig.host}") //#{} 使用方式
+            private String smtpHost;
+        }
+  ```
+##### 使用条件装配
+根据不同生产环境装配不同的Bean
+* 使用Profile
+-Dspring.profiles.active=test,master
+```java
+// -Dspring.profiles.active=test
+@Bean
+@Profile("test") //test 环境下装配bean
+ZoneId createZoneId(){
+    return ZoneId.systemDefault();
+}
+@Bean
+@Profile("!test")//非test环境下装配bean
+ZoneId createZoneIdForTest() {
+        return ZoneId.of("America/New_York");
+    }
+//满足多个Profile条件 
+// -Dspring.profiles.active=test,master
+
+    @Bean
+    @Profile({"test","master"})
+    ZoneId createZoneId(){
+
+    }
+```
+* 使用Conditional
+```java
+// 当满足条件，OnSmtpEnvConditional时，创建Bean
+@Component
+@Conditional(OnSmtpEnvConditional.class)
+public class SmtpMailService implements MailService{
+    // ......
+}
+// 当存在环境变量smtp时，成功
+public class OnSmtpEnvConditional implements Condition{
+    public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata){
+        return "true".equalsIgnoreCase(System.getenv("smtp"));
+    }
+}
+```
+#### AOP
+类似一种代理模式的实现方式,类似新建子类继承自原来的类，之后在子类的方法调用时，可以调用自己的方法后 再调用父类的方法      
+ **Spring对接口类型使用JDK动态代理，对普通类使用CGLIB创建子类。如果一个Bean的class是final，Spring将无法为其创建子类**。
+1. 定义执行方法，并在方法上通过AspectJ的注解告诉Spring应该在何处调用此方法；
+2. 标记@Component和@Aspect；
+3. 在@Configuration类上标注@EnableAspectJAutoProxy
+```xml
+<dependency>
+    <groupId>org.springframework</groupId>
+    <artifactId>spring-aspects</artifactId>
+    <version>${spring.version}</version>
+</dependency>
+```
+```java
+@Aspect
+@Component
+public class LoggingAspect {
+    // 在执行UserService的每个方法前执行:
+    @Before("execution(public * com.itranswarp.learnjava.service.UserService.*(..))")
+    public void doAccessCheck() {
+        System.err.println("[Before] do access check...");
+    }
+
+    // 在执行MailService的每个方法前后执行:
+    @Around("execution(public * com.itranswarp.learnjava.service.MailService.*(..))")
+    public Object doLogging(ProceedingJoinPoint pjp) throws Throwable {
+        System.err.println("[Around] start " + pjp.getSignature());
+        Object retVal = pjp.proceed();
+        System.err.println("[Around] done " + pjp.getSignature());
+        return retVal;
+    }
+}
+//在config类 通过注解 EnableAspectAutoProxy使能 aop
+@Configuration
+@ComponentScan
+@EnableAspectJAutoProxy
+public class AppConfig {
+    ...
+}
+// <aop:aspectj-autoproxy></aop:aspectj-autoproxy>
+// <aop:aspectj-autoproxy proxy-target-class="true"></aop:aspectj-autoproxy>
+// proxy-target-class属性值决定是基于接口的还是基于类的代理被创建。如果proxy-target-class 属性值被设置为true，那么基于类的代理将起作用（这时需要cglib库）。如果proxy-target-class属值被设置为false或者这个属性被省略，那么标准的JDK 基于接口的代理将起作用。
+```
+
+    @Before：这种拦截器先执行拦截代码，再执行目标代码。如果拦截器抛异常，那么目标代码就不执行了；
+
+    @After：这种拦截器先执行目标代码，再执行拦截器代码。无论目标代码是否抛异常，拦截器代码都会执行；
+
+    @AfterReturning：和@After不同的是，只有当目标代码正常返回时，才执行拦截器代码；
+
+    @AfterThrowing：和@After不同的是，只有当目标代码抛出了异常时，才执行拦截器代码；
+
+    @Around：能完全控制目标代码是否执行，并可以在执行前后、抛异常后执行任意拦截代码，可以说是包含了上面所有功能
+
+* execution 语法   
+`execution(modifiers-pattern? ret-type-pattern declaring-type-pattern?name-pattern(param-pattern)
+                throws-pattern?)`
+ret-type-pattern 、name-pattern 、parameter-pattern 必选
+   * `*`可表示为匹配所有的返回类型   
+   * com.xyz.service.AccountService.* 匹配AccountService类的方法
+   * ()表示方法参数为空
+   * (..)匹配一个或多个参数
+   * (*)参数可以为任意类型
+   * (*,String)两个参数，第一个参数任意类型，第二个为String
+   * example
+     *    execution(public * *(..)) 匹配任意public方法
+     *    execution(* set*(..)) 匹配set开头的任意方法
+     *   execution(* com.xyz.service.*.*(..)) 匹配service包下所有方法
+     *       execution(* com.xyz.service..*.*(..)) 匹配service包下或其子包下所有方法
+##### 使用注解装配AOP
+通过自定义注解方法，声明方法，同时`@Around("@annotation(metricTime)"))`,metricTime 为注解的小写开头的名字，实现AOP装配
+```java
+@Target(METHOD)
+@Retention(RUNTIME)
+public @interface MetricTime(){
+    String value();   
+}
+//  在切点上 标明注解
+@Component
+public class UserService {
+    // 监控register()方法性能:
+    @MetricTime("register")
+    public User register(String email, String password, String name) {
+        ...
+    }
+    ...
+}
+
+@Aspect
+@Component
+public class MetricAspect {
+    @Around("@annotation(metricTime)")
+    public Object metric(ProceedingJoinPoint joinPoint, MetricTime metricTime) throws Throwable {
+        String name = metricTime.value();
+        long start = System.currentTimeMillis();
+        try {
+            return joinPoint.proceed();
+        } finally {
+            long t = System.currentTimeMillis() - start;
+            // 写入日志或发送至JMX:
+            System.err.println("[Metrics] " + name + ": " + t + "ms");
+        }
+    }
+}
+```
+一次AOP异常
+* 访问被注入的Bean时，总是调用方法而不是直接访问字段
+* 编写Beans时，如果有可能被代理，不写public final 方法
+
+```java
+@Component
+public class UserService {
+    // 成员变量:
+    public final ZoneId zoneId = ZoneId.systemDefault();
+
+    // 构造方法:
+    public UserService() {
+        System.out.println("UserService(): init...");
+        System.out.println("UserService(): zoneId = " + this.zoneId);
+    }
+
+    // public方法:
+    public ZoneId getZoneId() {
+        return zoneId;
+    }
+
+    // public final方法:
+    public final ZoneId getFinalZoneId() {
+        return zoneId;
+    }
+}
+
+```
+```java
+@Component
+public class MailService {
+    @Autowired
+    UserService userService;
+
+    public String sendMail() {
+        //  NPE问题
+        ZoneId zoneId = userService.zoneId;
+        String dt = ZonedDateTime.now(zoneId).toString();
+        return "Hello, it is " + dt;
+    }
+}
+```
+```java
+@Aspect
+@Component
+public class LoggingAspect {
+    @Before("execution(public * com..*.UserService.*(..))")
+    public void doAccessCheck() {
+        System.err.println("[Before] do access check...");
+    }
+}
+```
+```java
+@Configuration
+@ComponentScan
+@EnableAspectAutoProxy
+public class AppConfig {
+    public static void main(String[] args) {
+        ApplicationContext context = new AnnotationConfigApplicationContext(AppConfig.class);
+        MailService mailService = context.getBean(MailService.class);
+        System.out.println(mailService.sendMail());
+    }
+}
+```
+* 通过CGLIB创建的UserService的子类，该代理类会覆写所有public和protected方法，并在内部将调用委托给原始的UserService实例
+* Spring通过CGLIB创建的代理类，构造函数中，没有`super()` 不会初始化代理类自身继承的任何成员变量，包括final类型的成员变量！
+* 自动加super()的功能是Java编译器实现的 ,Spring使用CGLIB构造的Proxy类，是直接生成字节码，并没有源码-编译-字节码这个步骤
+* 访问被代理的Bean的字段 通过接口访问。！！！

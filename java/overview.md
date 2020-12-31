@@ -4034,12 +4034,17 @@ IOC---Inversion of Control 控制反转，也称依赖注入(Dependency Injectio
 ```java
 public class BookService {
     private DataSource dataSource;
-
+//set 属性注入
     public void setDataSource(DataSource dataSource) {
         this.dataSource = dataSource;
     }
+    //构造器注入
+    public BookService(DataSource datatSource){
+      this.dataSource = dataSource;
+    }
 }
 ```
+
 ```xml
 <beans>
     <bean id="dataSource" class="HikariDataSource" />
