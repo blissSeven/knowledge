@@ -538,3 +538,4 @@ public class AppConfig {
 * Spring通过CGLIB创建的代理类，构造函数中，没有`super()` 不会初始化代理类自身继承的任何成员变量，包括final类型的成员变量！
 * 自动加super()的功能是Java编译器实现的 ,Spring使用CGLIB构造的Proxy类，是直接生成字节码，并没有源码-编译-字节码这个步骤
 * 访问被代理的Bean的字段 通过接口访问。！！！
+
