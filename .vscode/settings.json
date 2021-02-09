@@ -8,5 +8,9 @@
     "editor.quickSuggestions": true
   },
   "git.enableSmartCommit": true,
-  "git.postCommitCommand": "sync"
+  "git.postCommitCommand": "sync",
+  "files.associations": {
+    "*.ttml": "xml",
+    "*.ttss": "css"
+  }
 }

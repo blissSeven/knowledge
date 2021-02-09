@@ -203,3 +203,12 @@ public class WordCountReducer extends Reducer<Text, IntWritable, Text, IntWritab
 https://blog.csdn.net/zpf336/article/details/80931629  
 https://www.cnblogs.com/felixzh/p/4680808.html
 https://blog.csdn.net/YYDU_666/article/details/79465073?utm_medium=distribute.pc_relevant.none-task-blog-BlogCommendFromMachineLearnPai2-2.add_param_isCf&depth_1-utm_source=distribute.pc_relevant.none-task-blog-BlogCommendFromMachineLearnPai2-2.add_param_isCf
+
+### HDFS shell 命令
+hadoop fs -du  统计目录下各文件大小，单位字节。-du -s 汇总目录下文件大小，-du -h 显示单位
+
+### 参数
+设定Map、Reduce任务的physical RAM 的上限  
+`mapreduce.map.java.opts:-Xms3072m`   
+`mapreduce.map.java.opts:-Xms3072m` 
+设定Map、Reduce 任务Container的内存

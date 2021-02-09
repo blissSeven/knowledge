@@ -445,5 +445,11 @@ done
   `sudo  adduser hadoop sudo `
 
 
+tail -n 1000：显示最后1000行
+ 
+tail -n +1000：从1000行开始显示，显示1000行以后的
+ 
+head -n 1000：显示前面1000行
+
 
 
