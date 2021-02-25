@@ -35,6 +35,8 @@
     - [文件包含](#文件包含)
       - [命令行快捷键](#命令行快捷键)
       - [curl](#curl)
+      - [Trivial](#trivial)
+      - [差集VS并集](#差集vs并集)
 ## crontab
 ### 语法
     ```bash
@@ -444,12 +446,23 @@ done
 * 增加管理员权限
   `sudo  adduser hadoop sudo `
 
-
+#### Trivial
+* head VS tail
 tail -n 1000：显示最后1000行
- 
+
 tail -n +1000：从1000行开始显示，显示1000行以后的
  
 head -n 1000：显示前面1000行
+#### 差集VS并集
+* 交集
+  * `sort a.txt b.txt | uniq -d` 
+  * uniq去重，a b排序后如果有重复的，则只显示一个, -d表示输出次数大于1
+* 并集
+  * `sort a.txt b.txt | uniq `
+  * uniq 去重得并集
+* 差集
+  * `sort a.txt b.txt b.txt | uniq -u`
+  * uniq -u 输出出现次数为1的情况 ，b的内容最少出现两次，只会输出a中至出现一次的内容
 
 
 

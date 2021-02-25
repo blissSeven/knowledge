@@ -170,7 +170,7 @@ new操作
 
         private  Integer balance;
 
-        private final Object pwLock() = new Object();
+        private final Object pwLock = new Object();
 
         private String password;
 
@@ -261,6 +261,7 @@ class Account{
  class Allocation{
      private List<Object> als = new ArrayList<>();
      synchronized boolean apply( Object from, Object to){
+         //一次性 申请所有资源，否则 失败
          if(als.contains(from) || als.contains(to)){
              return false;
          }
@@ -279,11 +280,16 @@ class Account{
      private Allocation actr; /////应为 单例 ！！！
      private int balance;
      void transfer(Account target, int emt){
-         while(!actr.apply(this.target)){}
+         //一次性申请转出、转入账户，直到成功
+         while(!actr.apply(this, target)){}
          try{
              synchronized(this){
                  synchronized(target){
                      //.....
+                     if(this.balance > emt){
+                         this.balance -= emt;
+                         target.balance += emt;
+                     }
                  }
              }
          }finally{
@@ -313,14 +319,14 @@ class Account{
      }
  }
  ```
-## 等待通知
+## 06等待通知
 线程首次获取互斥锁，当线程要求的条件不满足时，释放互斥锁，进入等待状态，当要求的条件满足时。通知等待的线程，重新获取互斥锁。
 每个互斥锁有自己独立的等待队列。
 ![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/08/20/21-02-10-e89b0f1533e58a49e23a966e063a11aa-20200820210210-589650.png)
 * 首先等待队列中的一个线程获得锁进入临界区后，条件不满足，那么释放锁，并再次进入等待队列，其他等待队列中的线程可以获得锁。
-* 当条件满足时，`notify``notifyAll`可以通知等待队列中的线程，条件曾经满足过。
+* 当条件满足时，`notify` `notifyAll`可以通知等待队列中的线程，条件曾经满足过。
 * 被通知的线程，再次获得锁，进入临界区，再次判断条件是否满足
-* 如果锁住的是target，那么一定是`target.wait``target.notify``target.notifyAll`(这三者使用的前提是已经获得锁)
+* 如果锁住的是target，那么一定是`target.wait` `target.notify` `target.notifyAll`(这三者使用的前提是已经获得锁)
     ```java
     class Allocation{
         List<Object> als = new ArrayList<>();
@@ -375,7 +381,7 @@ class Account{
 ### 性能问题
 * 阿姆达尔定律   
    $$ S=\frac{1}{((1-p)+\frac{p}{n})}$$
-   n 为CPU核数，p为并行百分比，1-p为穿刺能够百分比，串行比为5%时，最高提高性能20%。
+   n 为CPU核数，p为并行百分比，1-p为串行百分比，串行比为5%时，最高提高性能20%。
 * 使用无锁的算法和数据结构
   * 线程本地存储
   * 写时复制
@@ -545,6 +551,7 @@ java中的管程只有一个条件变量,`synchronized`修饰的代码块在编�
 * 每个方法在调用栈里都有自己的独立空间，为栈帧，在栈帧里有对应方法需要的参数和返回地址。当调用方法时，创建栈帧并压入调用栈；方法返回时。对应栈帧会自动弹出。栈帧和方法同生共死。
 ### 局部变量
 局部变量放在调用栈里，如果一个变量想跨越方法边界，就必须创建在堆里。
+
 ![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/09/05/11-38-30-5ccd5e3491cb02d5dab3557a79ce7b3b-20200905113830-f40c42.png)
 ### 线程的调用栈
 每个线程有自己独立的调用栈，局部变量保存在线程自己的调用栈的对应方法的栈帧里，不会共享，没有伤害。
@@ -687,6 +694,8 @@ lock 有别于synchronized隐式锁
 * 能响应中断
 * 支持超时
 * 非阻塞的获取锁
+* synchronized死锁 破坏占有且互相等待条件，一个第三方的资源管理class（条件变量优化）
+* lock死锁 破坏不可抢占条件，
 ```java
 class Account{
     private int balance;
@@ -777,7 +786,7 @@ Lock&Condition实现的管程里只能使用`await() signal() signalAll()`
 synchronized管程只能使用`wait notify notifyAll`   
 ### 同步异步
 调用方是否需要等待结果--同步，还是立即返回---异步     
-Java默认同步，异步
+Java默认同步，可通过下列方式实现异步
 * 调用方创建一个子线程，在子线程中执行方法调用，称异步调用
 * 方法实现时，创建一个新线程执行主要逻辑，主线程直接return，这种方法----异步方法
 #### Dubbo源码
@@ -804,7 +813,7 @@ Object get(int timeout){
         while(!isDone()){
             done.await(timeout);
             long cur = System.nanoTime();
-            if(isDone() || cur->start > timeout){
+            if(isDone() || cur-start  > timeout){
                 break;
             }
         }
@@ -881,8 +890,8 @@ Seｍaphore允许多个线程访问同一个临界区
 对象池---一次性创建N个对象，之后所有的线程重复利用这N个对象，对象在被释放前，不允许被其他线程使用
 ```java
 class ObjPool<T, R>{
-    final List<T> pool;
-    final Semaphore sem;
+     List<T> pool;
+    Semaphore sem;
     ObjPool(int size, T t){
         pool = new Vector<T>(){};
         for( int i = 0 ; i < size; i++){
@@ -916,7 +925,6 @@ pool.exec(t -> {
 * 允许多个线程同时读共享变量
 * 只允许一个线程写共享变量
 * 如果一个线程正在写，那么禁止读线程读共享变量。
-* 
 ### 缓存实现
 ```java
 class Cache<K, V>{
@@ -1074,7 +1082,7 @@ long stamp = s1.tryOptimisticRead();
 if(!s1.validate(stamp)){
     stamp = s1.readLock();//升级为悲观锁
     try{
-
+            //再次获取变量
     }finally{
         s1.unlockRead(stamp);
     }
@@ -1177,4 +1185,176 @@ void checkAll(){
 * CyclicBarrier 执行回调函数的是将CyclicBarrier减到0的那个线程。
 * 看到回调函数时，想想执行回调函数的是哪个？
 
+## 并发容器
+通过包装借助synchronized将非线程安全容器变为线程安全，同样`Vector Stack Hashtable`，虽然不是基于包装类，但同样基于synchronized，同样遍历时需要加锁。
+遍历时存在竟态条件
+* it.hasNext
+* it.Next
 
+```java
+       List list = Collections.synchronizedList(new ArrayList());
+        Set set = Collections.synchronizedSet(new HashSet());
+        Map map = Collections.synchronizedMap(new HashMap());
+// 非线程安全
+        Iterator it = list.iterator();
+        while (it.hasNext()) {
+            if (it.next() instanceof String) {
+                fun((String) it.next());
+            }
+        }
+//        线程安全
+        synchronized (list){
+            Iterator its = list.iterator();
+            while (its.hasNext()) {
+                if (its.next() instanceof String) {
+                    fun((String) its.next());
+                }
+            }
+        }
+```
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2021/02/23/19-18-04-c7ff57c4cb027c3e7269ae90cdae3de4-20210223191804-75f97d.png)
+### List
+CopyOnWriteArrayList 适用于写非常少，且容忍读和写短暂不一致的情况，效果读操作完全无锁，迭代器只读，不支持增删改
+* 内部维护一个数组，变量array指向它，所有读操作基于此array
+* 如果遍历时，出现写操作，将array指向的数组复制一份，然后在复制的数组上执行增加元素的操作，执行完后在将变量指向新的数组
+* 读写并行，读基于旧的array，写基于新的数组
+### Map
+ConcurrentHashMap key无序，ConcurrentSkipListMap   
+|diff|ConcurrentHashMap|ConcurrentSkipListMap|
+|:-:|:-:|:-:|
+|key|key无序|key有序|
+|O(n)||O(logn)和并发数无关|
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2021/02/23/19-28-11-8a18b9737ee722513cb5a2efc3f3b1ad-20210223192811-6eabfe.png)
+### Set 
+`CopyOnWriteArraySet`&`ConcurrentSkipListSet`
+### Queue 
+* Blocking 阻塞，出队列，空时阻塞，入队列，满时阻塞
+* Queue 单端
+* Deque 双端
+#### Queue & Blocking
+* ArrayBlockingQueue 数组队列
+* LinkedBlockingQueue  链表队列
+* SynchronousQueue 无队列
+* LinkedTransferQueue 链表且无队列
+* PriorityBlockingQueue 按照优先级出队 
+* DelayQueue 支持延迟出队
+#### Deque &Blocking
+* LinkedBlockingDeque
+#### Queue & NonBlocking
+* ConcurrentLinkedQueue
+#### Deque & NonBlocking
+* ConcurrentLinkedDeque
+  
+#### Conclusion
+* 注意是否有边界，仅`ArrayBlockingQueue` `LinkedBlockingQueue`支持有界
+* 单个操作安全，组合操作不一定安全
+## 原子类
+同一个变量的原子更新问题，多个变量还是互斥锁
+```java
+ static AtomicLong count = new AtomicLong(0);
+
+    static void add10k() {
+        int idx = 0;
+        while (idx++ < 1000) {
+            count.getAndIncrement();
+        }
+    }
+```
+```java
+  //模拟CAS
+    static class SimulateCAS {
+        int count;
+
+        synchronized int cas(int except, int newValue) {
+            int curValue = count;
+            if (curValue == except) {
+                count = newValue;
+            }
+            return curValue;
+        }
+
+        void addOne() {
+            int newValue;
+            do {
+                newValue = count + 1;
+            } while (count != cas(count, newValue));
+        }
+    }
+```
+```java
+//确定共享变量的内存地址 
+    public final long getAndIncrement() {
+        return unsafe.getAndAddLong(this, valueOffset, 1L);
+   }
+   //
+     public final long getAndAddLong(Object var1, long var2, long var4) {
+        long var6;
+        do {
+            //从内存中获取共享变量
+            var6 = this.getLongVolatile(var1, var2);
+            // 循环判断变量值 是否预期
+        } while(!this.compareAndSwapLong(var1, var2, var6, var6 + var4));
+
+        return var6;
+    }
+```
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2021/02/23/20-31-23-c7f354fb7ce9aa1fe07d0d283496df53-20210223203123-5ef820.png)
+### 原子化的基本类型数据
+```java
+getAndIncrement() i++
+getAndDecrement() i--
+incrementAndGet() ++i
+decrementAndGet() --i
+
+getAndAdd(delta) +=delta 返回之前的值
+addAndAdd(delta) +=delta 返回之后的值
+
+compareAndSet(expect,update)
+
+getAndUpdate(func) 新值通过func计算
+updateAndGet(func)
+getAndAcculate(x,func)
+accumulateAndGet(x,func)
+```
+### 原子化的对象引用类型
+实现对象应用的原子化更新
+* `AtomicReference`
+* `AtomicStampedReference` 通过int stamp解决ABA
+* `AtomicMarkableReference` 通过boolean expectedMark 解决ABA
+注意ABA问题
+### 原子化数组
+* `AtomicIntegerArray`
+* `AtomicLongArray`
+* `AtomicReferenceArray`
+
+```java
+  AtomicIntegerArray atomicIntegerArray = new AtomicIntegerArray(5);
+        atomicIntegerArray.addAndGet(0,2);
+        System.out.println(atomicIntegerArray.get(0));
+```
+### 原子化对象属性更新
+利用发射原子化更新对象的属性，但对象属性必须volatile
+* `AtomicIntegerFieldUpdater`
+* `AtomicLongFieldUpdater`
+* `AtomicReferenceFieldUpdater`
+
+```java
+    static class Student{
+        volatile int age = 0;
+    }
+    public static void main(String[] args) {
+        AtomicIntegerFieldUpdater<Student> atomicIntegerFieldUpdater = AtomicIntegerFieldUpdater.newUpdater(Student.class,"age");
+        Student student = new Student();
+        student.age = 10;
+        int ret = atomicIntegerFieldUpdater.get(student);
+        System.out.println(ret);
+    }
+```
+### 原子化累加器
+仅仅执行累加操作，比原子化的基本数据类型 更快，不支持compareAndSet
+* `DoubleAccumulator`
+* `DoubleAdder`
+* `LongAccumulator`
+* `LongAdder`
+
+## 线程池
