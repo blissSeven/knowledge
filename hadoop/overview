@@ -212,3 +212,7 @@ hadoop fs -du  统计目录下各文件大小，单位字节。-du -s 汇总目�
 `mapreduce.map.java.opts:-Xms3072m`   
 `mapreduce.map.java.opts:-Xms3072m` 
 设定Map、Reduce 任务Container的内存
+`mapreduce.map.memory.mb:4096`
+`mapreduce.reduce.memory.mb:8192`
+
+http://bliss-hp-prodesk-680-g4-mt:9870/dfshealth.html#tab-datanode

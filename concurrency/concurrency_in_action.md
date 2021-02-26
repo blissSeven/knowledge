@@ -1358,3 +1358,34 @@ accumulateAndGet(x,func)
 * `LongAdder`
 
 ## 线程池
+线程重量级对象，避免频繁创建和销毁   
+```java
+    public ThreadPoolExecutor(int corePoolSize,
+                              int maximumPoolSize,
+                              long keepAliveTime,
+                              TimeUnit unit,
+                              BlockingQueue<Runnable> workQueue,
+                              ThreadFactory threadFactory,
+                              RejectedExecutionHandler handler)
+```
+* corePoolSize 线程池的最小线程数
+* maximumPoolSize 线程池最大线程数
+* keepAliveTime&TimeUnit 一段时间，当线程空闲了这么段时间，并且线程数大于corePoolSize,会回收当前线程
+* threadFactory 自定义创建线程
+* handler 拒绝策略，当线程都在运行，且WorkQueue满了，按照该策略拒接任务
+  * CallerRunsPolicy 提交任务的线程去执行该任务
+  * AbortPolicy 默认拒绝策略，throws RejectedExecutionException
+  * DiscardOldestPolicy 抛弃最老的任务，最早进入到工作队列的任务丢掉，后新任务加入工作队列
+
+* 工作队列，有界
+* 默认拒绝策略RejectedExecutionException 运行时异常，编译器不强制catch，容易忽略
+* 自定义拒绝策略和降级策略配合使用
+*  ```java
+    try{
+        //业务逻辑
+    }catch (RuntimeException e){
+        //按需处理
+    }catch(Throwable x){
+
+    }
+     ```
