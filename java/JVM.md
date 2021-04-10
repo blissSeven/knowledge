@@ -233,12 +233,12 @@ if_icompge、iinc 、 goto
 * 解析 符号解析为引用
 * 初始化 构造器、静态变量赋值、静态代码块
 * 使用
-* 卸载
-类加载时机   
+* 卸载  
+### 类加载时机   
 * 虚拟机启动时，初始化用户制定的main class
 * new 一个类
-* 调用静态方法的指令，
-* 子类初始话触发父类初始化
+* 调用静态方法的指令，初始化静态方法所在的类
+* 子类初始化触发父类初始化
 * 一个接口定义default方法，当直接实现或间接实现该接口的类的初始化时，触发该接口初始化
 * 反射API对某个类进行反射调用，初始化该类
 * 初次调用MethodHandle实例，初始化该MethodHandle指向的方法所在的类   
@@ -251,14 +251,15 @@ if_icompge、iinc 、 goto
 * 通过ClassLoder默认loadClass方法，只加载，不初始化
 
 类加载器
-* 启动类加载器BootStramClassLoader 加载核心类 \lib\rt.jar
-* 扩展类加载器ExClassLoader jdk扩展目录
-* 应用类加载器AppClassLoader 用户类  
+* 启动类加载器BootStramClassLoader 加载核心类 \lib\rt.jar JVM底层实现 找不到类
+* 扩展类加载器ExClassLoader jdk扩展目录 JVM可以找到具体类
+* 应用类加载器AppClassLoader 用户类   JVM可以找到具体类
+* JDK9 扩展类/应用类 实际实现 父类为URLClassLoader  
 ![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2021/03/20/17-58-09-c29f476ac8cbadea550d80eca18ba9c2-20210320175809-3cbfed.png)    
   特点
 * 双亲委托--依次递归看父类加载器是否有，
 * 负责依赖--加载该类同时，加载该类的依赖类
-* 缓存加载--类只加载依次，之后缓存
+* 缓存加载--类只加载一次，之后缓存
 自定义类加载器实现模块化   
 
 ```java
@@ -336,6 +337,81 @@ file:/usr/lib/jdk/jdk1.8.0_261/jre/classes
 -->file:/usr/lib/jdk/jdk1.8.0_261/jre/lib/charsets.jar
 -->file:/usr/lib/jdk/jdk1.8.0_261/jre/lib/deploy.jar
 -->file:/usr/lib/jdk/jdk1.8.0_261/jre/lib/ext/cldrdata.jar
-```
+........
+```  
+自定义类加载器
+```java
 
-  
+    public static void main(String[] args) {
+        try {
+            new UserDefineClassLoader().findClass("JVM.Hello").newInstance();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        } catch (InstantiationException e) {
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    protected Class<?> findClass(String name) throws ClassNotFoundException {
+
+        //这里出现错误，classloader只能加载.class文件
+        try (InputStream in = UserDefineClassLoader.class.getClassLoader().getResourceAsStream("JVM/Hello.class")) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] bytes = new byte[1024];
+            int len;
+            while ((len = in.read(bytes)) != -1) {
+                out.write(bytes, 0, len);
+            }
+            return defineClass(name, out.toByteArray(), 0, out.size());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return super.findClass(name);
+    }
+```
+添加引用类的方式
+* 放在lib/ext目录下 或者 -Djava.ext.dirs
+* java -cp/classpath 或将class 放在当前路径
+* 自定义ClassLoader加载器
+* 拿到当前执行类的ClassLoader，反射调用addUrl添加Jar或路径(JDK9无效,URLClassLoader 不再是应用类加载器的父类)
+
+```java
+   String appPath = "file:/d:/app";
+        URLClassLoader urlClassLoader = (URLClassLoader) AddReferenceClass.class.getClassLoader();
+
+        try {
+            Method addUrl = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
+            addUrl.setAccessible(true);
+            URL url = new URL(appPath);
+            addUrl.invoke(urlClassLoader, url);
+            Class.forName("jvm.hello");
+//            Class.forName("jvm.hello").newInstance(); 等同该行
+        } catch (InvocationTargetException | MalformedURLException | IllegalAccessException | ClassNotFoundException | NoSuchMethodException e) {
+            e.printStackTrace();
+        }
+```
+  ### JVM内存模型
+  ![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2021/04/10/18-00-22-d5d0e417df735cea30e99972a5d1cac8-20210410180022-091c8e.png)
+*  线程栈 保存原生类型的局部变量（其他线程不可见，可将该原生变量副本传给另一个线程）
+* 堆内存保存所有线程创建的对象，包含包装类型
+* 所持有的对象为指针，执行堆中一块内存区域  
+
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2021/04/10/18-05-41-f348279a35cbbbff6ab49f41a5bd3d63-20210410180540-398355.png)
+* 原生类型的局部变量保存在线程栈中  
+* 如果对象引用，占中局部变量槽存放的是对象的引用地址，实际对象在堆中
+* 对象成员变量和对象本身一起存放在堆中，包括原生类型的成员变量和对象引用的成员变量
+* 类的静态变量和类定义都在堆中 
+* 方法中共的原生类型和对象引用地址在栈上存储，对象、对象成员与类定义、静态变量在堆上
+* 堆中所有对象可以被拿到对象地址的所有线程访问
+* 如果一个线程可以访问某对象，则可以访问该对象的成员变量
+* 多个线程调用某个对象的同一方法，都可以访问这个对象的成员变量，但是局部变量副本是独立的。
+
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2021/04/10/18-17-13-c036f4da7f18f48da868d5d7e95b3d93-20210410181712-fd95e6.png)
+
+* 启动一个线程，-Xss1m分配一个线程栈(1m)
+* 线程栈-方法栈，如果使用JNI方法，会分配一个单独的本地方法栈(Native Stack)
+* 执行一个方法，创建栈帧
+

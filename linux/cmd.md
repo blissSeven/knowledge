@@ -461,7 +461,7 @@ head -n 1000：显示前面1000行
   * `sort a.txt b.txt | uniq `
   * uniq 去重得并集
 * 差集
-  * `sort a.txt b.txt b.txt | uniq -u`
+  * `sort a.txt b.txt b.txt | uniq -u` a-b
   * uniq -u 输出出现次数为1的情况 ，b的内容最少出现两次，只会输出a中至出现一次的内容
 
 

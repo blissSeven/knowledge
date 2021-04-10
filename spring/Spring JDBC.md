@@ -30,7 +30,7 @@ spring 认为触发异常的很多问题不能在catch中修复，不强制编�
     ds.setInitialSize(5);
     ds.setMaxActive(10);
     return ds;
-    }
+    }中，因为要检查文件的MD5，同时也要检查输入流
    ```
 * JDBC  
    DriverManagerDataSource 每个连接请求时，都会返回一个新建的连接   
