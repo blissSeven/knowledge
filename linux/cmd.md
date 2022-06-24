@@ -33,6 +33,10 @@
       - [Here Document](#here-document)
       - [/dev/null](#devnull)
     - [文件包含](#文件包含)
+      - [命令行快捷键](#命令行快捷键)
+      - [curl](#curl)
+      - [Trivial](#trivial)
+      - [差集VS并集](#差集vs并集)
 ## crontab
 ### 语法
     ```bash
@@ -114,7 +118,7 @@ f1 f2 f3 f4 f5 program
 * 定义数组
     * `array_name=(value0 value1 value2 value3)`
     * `array_name[0]=value0`
-    * array_name[n]=valuen
+    * `array_name[n]=valuen`
   * 读取数组
     * `valuen=${array_name[n]}`
   * 获得数组长度
@@ -141,8 +145,8 @@ f1 f2 f3 f4 f5 program
   * 传递的参数作为一个字符串显示：1 2 3
   * 类比传入了一个参数
 * `$$` 当前进程ID 
-* $! 后台运行的最后一个进程的ID 
-* $@ 与$*相同，但是使用时加引号，并在引号中返回每个参数。
+* `$!` 后台运行的最后一个进程的ID 
+* `$@` 与`$*`相同，但是使用时加引号，并在引号中返回每个参数。
   * 传递的参数作为一个字符串显示："1" "2" "3"
   * 类比传入了3个参数
 * $- 显示Shell使用的当前选项
@@ -411,10 +415,54 @@ EOF
 . ./test1.sh 
 source ./test1.sh
 ``` 
+获取所有文件夹名称
+```shell
+for dir in $(ls /usr/)
+do
+  [ -d $dir ] && echo $dir
+done
+```
+文件后缀、目录提取
+* `${var##*/}` 去掉变量var从左边算起的最后一个'/'字符，及其左边内容，返回右边内容
+* `${var##*.}`
+* `${var#*.}` 去掉变量var从左边算起的第一个.字符及其左边内容，返回右边
+* `${var%%.*}`去掉变量var从右边算起的最后一个'.'字符及其右边内容，返回左边
 
+#### 命令行快捷键
+* ctrl+r 查看历史命令，输入关键字后，连续ctrl+D可以切换搜索结果
+* ctrl+a/ctrl+d 可以快速将光标指向命令的开头与结尾
+* alt+b/alt+f 以单词为单位，向前/后移动光标
+* ctrl+w 以单词为单位，向前删除
+* alt+d 以单词为单位，向后删除
+* ctrl+l 清空当前终端
 
+#### curl
 
+####
+* 新增用户
+`sudo useradd -m hadoop -s /bin/bash`
+* 更改用户密码
+`sudo passwd hadoop `
+* 增加管理员权限
+  `sudo  adduser hadoop sudo `
 
+#### Trivial
+* head VS tail
+tail -n 1000：显示最后1000行
+
+tail -n +1000：从1000行开始显示，显示1000行以后的
+ 
+head -n 1000：显示前面1000行
+#### 差集VS并集
+* 交集
+  * `sort a.txt b.txt | uniq -d` 
+  * uniq去重，a b排序后如果有重复的，则只显示一个, -d表示输出次数大于1
+* 并集
+  * `sort a.txt b.txt | uniq `
+  * uniq 去重得并集
+* 差集
+  * `sort a.txt b.txt b.txt | uniq -u` a-b
+  * uniq -u 输出出现次数为1的情况 ，b的内容最少出现两次，只会输出a中至出现一次的内容
 
 
 

@@ -1,7 +1,5 @@
 # emoji
-:smile:
-:laughing:
-:blush:
+:smile: :laughing::blush:
 :smiley:
 :relaxed:
 :smirk:
@@ -16,6 +14,7 @@
 :stuck_out_tongue_winking_eye:
 :stuck_out_tongue_closed_eyes:
 :grinning:
+
 :kissing:
 :kissing_smiling_eyes:
 :stuck_out_tongue:
@@ -31,6 +30,7 @@
 :unamused:
 :sweat_smile:
 :sweat:
+
 :disappointed_relieved:
 :weary:
 :pensive:
@@ -40,6 +40,7 @@
 :cold_sweat:
 :persevere:
 :cry:
+
 :sob:
 :joy:
 :astonished:
@@ -49,6 +50,7 @@
 :rage:
 :triumph:
 :sleepy:
+
 :yum:
 :mask:
 :sunglasses:
@@ -56,6 +58,7 @@
 :imp:
 :smiling_imp:
 :neutral_face:
+
 :no_mouth:
 :innocent:
 :alien:
@@ -67,6 +70,7 @@
 :green_heart:
 :broken_heart:
 :heartbeat:
+
 :heartpulse:
 :two_hearts:
 :revolving_hearts:
@@ -74,11 +78,13 @@
 :sparkling_heart:
 :sparkles:
 :star:
+
 :star2:
 :dizzy:
 :boom:
 :collision:
 :anger:
+
 :exclamation:
 :question:
 :grey_exclamation:

@@ -19,6 +19,15 @@
     - [BigDecimal](#bigdecimal)
     - [数组](#数组)
     - [正则表达式](#正则表达式)
+      - [匹配规则](#匹配规则)
+      - [复杂匹配规则](#复杂匹配规则)
+      - [分组分配](#分组分配)
+      - [非贪婪匹配](#非贪婪匹配)
+      - [搜索和替换](#搜索和替换)
+        - [分割](#分割)
+        - [搜索子串](#搜索子串)
+        - [替换字符串](#替换字符串)
+        - [反向引用](#反向引用)
   - [面向对象](#面向对象)
     - [方法](#方法)
     - [继承](#继承)
@@ -73,6 +82,87 @@
     - [Map](#map)
       - [遍历Map](#遍历map)
     - [equals 和hashcode](#equals-和hashcode)
+    - [EnumMap](#enummap)
+    - [TreeMap](#treemap)
+      - [comparable VS comparator](#comparable-vs-comparator)
+    - [使用Properties](#使用properties)
+      - [读](#读)
+      - [写](#写)
+      - [编码](#编码)
+    - [Set](#set)
+    - [Queue](#queue)
+    - [PriprityQueue](#priprityqueue)
+    - [Deque](#deque)
+    - [Stack](#stack)
+    - [Iterator](#iterator)
+    - [Collections](#collections)
+      - [创建空集合](#创建空集合)
+      - [单元素集合](#单元素集合)
+      - [排序](#排序)
+      - [洗牌](#洗牌)
+      - [不可变集合](#不可变集合)
+      - [线程安全集合](#线程安全集合)
+  - [IO](#io)
+    - [File对象](#file对象)
+      - [File](#file)
+    - [InputStream](#inputstream)
+    - [OutputStream](#outputstream)
+    - [Filter模式](#filter模式)
+    - [zip](#zip)
+    - [读取classpath资源](#读取classpath资源)
+    - [序列化](#序列化)
+      - [序列化](#序列化-1)
+      - [反序列化](#反序列化)
+    - [Reader](#reader)
+      - [FileReader](#filereader)
+      - [CharArrayReader](#chararrayreader)
+      - [StringReader](#stringreader)
+    - [Writer](#writer)
+      - [FileWriter](#filewriter)
+      - [CharArrayWriter](#chararraywriter)
+      - [StringWriter](#stringwriter)
+    - [PrintStream & PrintWriter](#printstream--printwriter)
+    - [Files](#files)
+  - [日期与时间](#日期与时间)
+    - [Date & Calendar](#date--calendar)
+      - [Date](#date)
+      - [Calendar](#calendar)
+      - [TimeZone](#timezone)
+    - [LocalDateTime](#localdatetime)
+      - [ZonedDateTime](#zoneddatetime)
+      - [DateTimeFormatter](#datetimeformatter)
+      - [Instant](#instant)
+  - [单元测试](#单元测试)
+    - [Junit单元测试工具](#junit单元测试工具)
+    - [Fixture](#fixture)
+    - [异常测试](#异常测试)
+    - [条件测试](#条件测试)
+    - [参数化测试](#参数化测试)
+    - [函数式编程](#函数式编程)
+      - [方法引用](#方法引用)
+      - [Stream](#stream)
+  - [|用途|序列化至文件或网络|内存计算\业务逻辑|](#用途序列化至文件或网络内存计算业务逻辑)
+        - [创建 Stream](#创建-stream)
+        - [基本概念](#基本概念)
+        - [map](#map-1)
+        - [filter](#filter)
+        - [reduce](#reduce)
+        - [输出结果](#输出结果)
+        - [其他操作](#其他操作)
+      - [网络编程](#网络编程)
+        - [TCP](#tcp)
+        - [UDP](#udp)
+        - [Http](#http)
+        - [RMI](#rmi)
+      - [Java Web](#java-web)
+        - [Web](#web)
+        - [Servlet 入门](#servlet-入门)
+        - [Servlet进阶](#servlet进阶)
+          - [重定向与转发](#重定向与转发)
+          - [Session和Cookie](#session和cookie)
+        - [Listener](#listener)
+      - [Spring](#spring)
+        - [IOC容器](#ioc容器)
     - [重写（Override） VS 重载（Overload）](#重写override-vs-重载overload)
 ## 语法  
 ### 基础
@@ -433,6 +523,103 @@ java.math.BigInteger就是用来表示任意大小的整数。BigInteger内部�
             c1.set(2017, 2, -10); 2017 1 18
         ```
 ### 正则表达式
+正则也是字符串,对于正则`a\&c`，等同于字符串`a\\&c`
+#### 匹配规则
+从左到右  
+单字符匹配规则  
+|正则|规则|example|
+|:-:|:-:|:-:|
+|A|指定字符|A|
+|\u548c|指定unicode字符|和|
+|.|任意字符|a,b,&,0|
+|\d|0-9数字|0-9|
+|\w|大小写字母+下划线|a-z,A-Z,0-9,_|
+|\s|空格、TAB键|空格+tab|
+|\D|非数字|a,A,&|
+|\W|非\w|非大小写字母，下划线, e.g. &,@!|
+|\S|非\s|非空格，非tab|
+多个字符匹配规则
+|正则|规则|example|
+|:-:|:-:|:-:|
+|A*|任意个数字符|空，A,AA,AAA|
+|A+|至少一个字符|A,AA,AAA|
+|A?|0个或1个字符|空或A|
+|A{3}|指定个数字符|AAA|
+|A{2,3}|指定范围个数字符|AA,AAA|
+|A{2,}|至少n个字符|AA,AAA,AAAA|
+|A{0,3}|至多n个字符|空，A,AA,AAA|
+#### 复杂匹配规则
+可以用`()`表示一个子规则括起来，
+|正则|规则|example|
+|:-:|:-:|:-:|
+|^|开头|字符串开头|
+|$|结尾|字符串结尾|
+|[abc]|[...]内任意字符，仅一个|a,b,c|
+|[^A-F]|指定范围外字符|非A～F|
+|`(AB|CD|EF)`|或|AB,CD,EF|
+#### 分组分配
+`（）`将子规则括起来，可用于匹配后的分组 ,匹配到的是匹配到的子规则的字符串
+`Pattern`用于编译正则，一次编译可用于多次的`Matcher`匹配   
+`matcher.group(0)`表示匹配的整个字符串
+`matcher.group(1)`表示匹配的第一个子串
+```java
+Pattern pattern = Pattern.compile("(\\d{3,4})\\-(\\d{7,8})");
+        Matcher matcher = pattern.matcher("010-1234567");
+        if(matcher.matches()){
+            logger.info("{}",matcher.group(0));//010-1234567
+            logger.info("{}",matcher.group(1));//010 // ！！！没有-
+            logger.info("{}",matcher.group(2));//1234567
+        }
+```
+#### 非贪婪匹配
+默认情况下，正则对于一些`*+`处于贪心模式，会尽可能匹配多的字符
+```java
+ Pattern pattern1 = Pattern.compile("(\\d+)(0*)");
+        Matcher matcher1 = pattern1.matcher("1230000");
+        if (matcher1.matches()) {
+            logger.info("{}", matcher1.group(1));//1230000
+            logger.info("{}", matcher1.group(2));//""
+        }
+```
+通过`?`可以使正则处于非贪婪模式
+```java
+Pattern lazyPattern1 = Pattern.compile("(\\d+?)(0*)");
+        Matcher lazyMatcher1 = lazyPattern1.matcher("1230000");
+        if (lazyMatcher1.matches()) {
+            logger.info("{}", lazyMatcher1.group(1));//123
+            logger.info("{}", lazyMatcher1.group(2));//0000
+        }
+```
+`(\d??)` `?`表示匹配0个或1个，`?`表示非贪婪模式，所以匹配0个数字
+#### 搜索和替换
+##### 分割
+```java
+ String[] splits = "a b c ".split("\\s");
+        logger.info("{}", Arrays.toString(splits));
+```
+##### 搜索子串
+```java
+String s = "the quick brown fox jumps over the lazy dog.";
+        Pattern pattern2 = Pattern.compile("\\wo\\w");
+        Matcher matcher2 = pattern2.matcher(s);
+        while (matcher2.find()) {
+            String sub = s.substring(matcher2.start(), matcher2.end());
+            logger.info("{}", sub);
+        }
+```
+##### 替换字符串
+```java
+  String s2 = "The     quick\t\t brown   fox  jumps   over the  lazy dog.";
+        String r = s.replaceAll("\\s+", " ");
+        logger.info("{}", r);
+```
+##### 反向引用
+`$1`表示对group1`()`匹配到的 ,类推
+```java
+  s = "the quick brown fox jumps over the lazy dog.";
+        r = s.replaceAll("\\s([a-z]{4})\\s", " <b>$1</b> ");//group
+        logger.info("{}", r);
+```
   * Pattern 正则表达式的编译表示,接受正则表达式作为参数
     * Pattern m=Pattern.compile(regrex)
   * Matcher对输入字符串进行解释和匹配操作
@@ -1444,12 +1631,12 @@ static boolean isNull(Pair<?> p){
 * Stack 基于Vector实现的LIFO栈
 * Enumeration<E> 被Iterator<E>取代
 ### List
-|-----|    ArrayList|LinkedList|
-|:----------------:|:-----------:|:-------------:|
-|获取指定元素|快|从头开始查找|
-| 添加元素到末尾   |         快      |               快               |
-|指定位置添加、删除|需要移动元素|不需要移动|
-|   内存占有   |    少    |   多    |
+|       -----        |  ArrayList   |  LinkedList  |
+| :----------------: | :----------: | :----------: |
+|    获取指定元素    |      快      | 从头开始查找 |
+|   添加元素到末尾   |      快      |      快      |
+| 指定位置添加、删除 | 需要移动元素 |  不需要移动  |
+|      内存占有      |      少      |      多      |
 #### 创建
 * `List<Integer> list = new ArrayList<>()`
 * `List<Integer> list = new LinkedList<>()`
@@ -1530,16 +1717,2348 @@ Map中不存在重复的Key，相同的Key会把原有的Key-Value替换
    return Object.hash(firstname, secondname, age);
  }
  ```
- 原则：
+ 原则：  
  equals()用到的用于比较的每一个字段，都在hashCode()中用于计算，equals()中没有用到的字段，一定不要在hashCode()中计算。
+hash内部使用了数组，通过计算key的hashCode()定位value的索引。
+* hashmap 初始化时默认数组大小16，任何key，无论hashCode()多大，都通过`int index = key.hashCode() & 0x0f`,将索引定位在0-15
+* 如果添加元素超过16，HashMap内部自动扩充，每次扩充一倍，后需要重新计算hashCode对应的索引`int index = key.hashCode() & 0X1f`
+* 频繁扩充影响性能，最好创建时指定大小,HashMap内部数组大小为 $2^n$
+  * `Map<String, Integer> map = new HashMap<>(10000);`实际大小为16384
+* hash冲突时，每个索引处存放一个List包含多个Entry，
+  * 内部通过key实际找到的为List<Entry<String , Person>>,之后再遍历这个List
+
+### EnumMap
+当key为Enum类型时，EnumMap内部以非常紧凑的数组存储value，根据enum类型的key直接定位到内部数组的索引，不需要计算hashCode(),效率高，空间省
+```java
+Map<DayOfWork, String> map = new EnumMap<>(DayOfWork.class);
+map.put(DayOfWork.MONDAY, "周一");
+map.get(DayOfWork.MONDAY);
+```
+### TreeMap
+HashMap内部key无序，遍历Key时，顺序不可预测。对key会排序的接口Map为SortedMap，实现类为TreeMap。SortedMap保证以key的顺序，放入的key必须实现Comparable接口。或者在创建时定义个排序算法，传入Comparator类
+```java
+Map<Person, Integer> map = new TreeMap<>(new Comparator<Person>(){
+  public int compare(Person p1, Person p2){
+  }
+});
+```
+#### comparable VS comparator
+```java
+ package java.lang;
+public interface Comparable<T> {
+    public int compareTo(T o);
+}
+```
+```java
+package java.util;
+public interface Comparator<T> {
+   int compare(T o1, T o2);
+   boolean equals(Object obj);
+  //....... many interface
+}
+```
+Comparable对实现它的每个类的对象进行整体排序，这个接口需要类本身实现，需要在设计类之处就实现该接口类。    
+* 实现Comparable接口的类的List/数组，通过Collections.sort或者Arrays.sort进行排序
+* 也可作为有序映射TreeMap或有序集合TreeSet中的元素，而不需要指定比较器
+```java
+public class Person1 implements Comparable<Person1>{
+  @Override
+  public int compareTo(Person1 o){
+    return this.age - o.age;
+  }
+}
+      Person1 person1 = new Person1("zzh",18);
+      Person1 person2 = new Person1("jj",17);
+      Person1 person3 = new Person1("qq",19);
+
+      List<Person1> list = new ArrayList<>();
+      list.add(person1);
+      list.add(person2);
+      list.add(person3);
+
+      System.out.println(list);
+      Collections.sort(list);
+```
+当类不可修改，有需要对其进行排序时，需要用到comparator
+```java
+pulibc final class Person2{
+
+}
+```
+final修饰，无法再implements Comparable,在类的外部使用Comparator接口
+```java
+      Person2 p1 = new Person2("zzh",18);
+      Person2 p2 = new Person2("jj",17);
+      Person2 p3 = new Person2("qq",19);
+      List<Person2> list2 = new ArrayList<Person2>();
+      list2.add(p1);
+      list2.add(p2);
+      list2.add(p3);
+      System.out.println(list2);
+      Collections.sort(list2,new Comparator<Person2>(){
+
+          @Override
+          public int compare(Person2 o1, Person2 o2)
+          {
+           if(o1 == null || o2 == null)
+			return 0;
+              return o1.getAge()-o2.getAge();
+          }
+      });
+      System.out.println(list2);
+```
+总结  
+Comparable 是排序接口；若一个类实现了 Comparable 接口，就意味着 “该类支持排序”。而 Comparator 是比较器；我们若需要控制某个类的次序，可以建立一个 “该类的比较器” 来进行排序
+
+### 使用Properties
+配置文件Key-value一般都是String-String的，默认以properties扩展名
+#### 读
+```java
+# setting.properties
+last_open_file=/data/hello.txt 
+auto_save_interval=60
+```
+```java
+String f = "setting.properties"
+Properties props = new Properties();
+props.load(new java.io.FileInputStream(f));
+//propes.load(getClass().getResourceAsStream("/common/setting.properties")); 多次load会覆盖之前的
+String filepath = props.getProperty("last_ioen_file")//不存在 返回Null
+props.getProperty("auto_save", "60"));//默认值
+```
+#### 写
+```java
+Properties props = new Properties();
+props.setProperty("url","www.baidu.com");
+props.setProperty("l","1");
+props.store(new FileOutputStream("C:/conf/setting.properties"),"this is writed annotation");
+```
+#### 编码
+早起规定.properties编码ascii，中文时用`name=\u4e2d\u6587`表示，JDK9后，.properties可以使用UTF-8编码。`load(InputStream)`总是以ASCII编码读取字节流，乱码。`load(Reader)`使用字符流,已经在内存中以char表示，不涉及编码问题
+```java
+props.load(new FileReader("settings.properties", StandardCharsets.UTF_8));
+```
+### Set 
+存储不重复的元素集合
+* boolean add(E e)
+* boolean remove(Object e)
+* boolean contains(Object e)
+常用HashSet为HashMap的简单封装，理解为只存储key的HashMap
+```java
+public class HashSet<E> implements Set<E>{
+  private HashMap<E, Object> map = new HashMap<>();
+  private static final Object PRESENT = new Object();
+  public boolean add(E e){
+    return map.put(e, PRESENT) == null;
+  }
+  public boolean contains(Object o){
+    return map.contains(o);
+  }
+  public boolean remove(Object o){
+    return map.remove(o) == PRESENT;
+  }
+}
+```
+类似SortedMap TreeMap，存在SortedSet TreeSet，key的排序顺序，TreeSet需要key的类实现Comparable接口，或者创建TreeSet时传入Comparator对象。
+### Queue
+**避免将null传入Queue**，实现类有`AbstractQueue, ArrayBlockingQueue, ArrayDeque, ConcurrentLinkedDeque, ConcurrentLinkedQueue, DelayQueue, LinkedBlockingDeque, LinkedBlockingQueue, LinkedList, LinkedTransferQueue, PriorityBlockingQueue, PriorityQueue, SynchronousQueue`
+|       desc       | throws Exception |    false或null     |
+| :--------------: | :--------------: | :----------------: |
+|     队列长度     |                  |     int size()     |
+|    添加到队尾    | boolean add(E e) | boolean offer(E e) |
+| 取队首元素并删除 |    E remove()    |      E poll()      |
+| 取队首元素不删除 |   E element()    |      E peek()      |
+```java
+Queue<String> q = new LinkedList<>();
+List<String> list = new LinkedList<>();//LinkedList既实现了List,也实现了Queue
+```
+### PriprityQueue
+即有顺序的Queue,要求存放的元素implements Comparable接口，或者在创建PriorityQueue时传入Comparator对象。   
+PriorityQueue和Queue的区别在于，它的出队顺序与元素的优先级有关，对PriorityQueue调用remove()或poll()方法，返回的总是优先级最高的元素
+```java
+Queue<User> q =new PriorityQueue<>(new UserComparator());
+
+class UserComparator implements Comparator<User>{
+  public int compare(User u1, User u2){
+
+  }
+}
+```
+### Deque
+双端队列,实现类有ArrayDeque和LinkedList,避免把null添加到队列
+|     desc     |        Queue         |             Deque             |
+| :----------: | :------------------: | :---------------------------: |
+|  添加到队尾  | add(E e)/offer(E e)  |  addLast(E e)/offerLast(E e)  |
+| 取队首不删除 | E element()/E peek() |  E getFirst()/E peekFirst()   |
+| 取队首并删除 | E remove()/E poll()  | E removeFirst()/E pollFirst() |
+|  添加到队首  |         None         | addFirst(E e)/offerFirst(E e) |
+| 取队尾不删除 |         None         |   E getLast()/E peekLast()    |
+| 取队尾并删除 |         None         |  E getFirst()/E peekFirst()   |
+### Stack
+Deque模拟的Stack
+* 压栈 push(E)
+* 取栈顶弹出 pop(E)
+* 取栈顶不弹出 peek(E)
+
+### Iterator
+for each 通过Iterator改写成了普通的for循环。
+自定义集合类的for each循环，条件
+* 实现Iterable接口，按要求返回一个Iterator对象
+* 用Iterator对象迭代集合内部数据
+
+在编写Iterator的时候，我们通常可以用一个内部类来实现Iterator接口，这个内部类可以直接访问对应的外部类的所有字段和方法。例如，上述代码中，内部类ReverseIterator可以用ReverseList.this获得当前外部类的this引用，然后，通过这个this引用就可以访问ReverseList的所有字段和方法。
+```java
+ReverseList<String> rlist = new ReverseList<>();
+rlist.add("apple");
+
+class ReverseList<T> implements Iterable<T>{
+  private List<T> list = new ArrayList<>();
+  public void add(T t){
+    list.add(T);
+  }
+  @Override
+  public Iterator<T> iterator(){
+    return new ReverseIterator(list.size());
+  }
+  class ReverseIterator implements Iterator<T>{
+    int index;
+    ReverseIterator(int index){
+      this.index = index;
+    }
+    @Override
+    public boolean hasNext(){
+      return index > 0;
+    }
+    @Override
+    public T next(){
+      index --;
+      return ReverseList.this.list.get(index);
+    }
+  }
+}
+```
+Iterator进行迭代好处
+* 对任何集合统一
+* 调用者无需对集合内部结构了解
+* 集合类返回的Iterator对象知道如何迭代  ??
+
+### Collections
+位于`java.util`包中，提供了静态方法，便于对集合操作
+#### 创建空集合
+返回的空集合为不可变对象，无法添加元素
+* List<T> emptyList();
+* Map<K, V> emptyMap()
+* Set<T> emptySet()
+也可利用集合提供的`of`接口
+```java
+List<String> list1 = List.of();
+List<String> list2 = Collections.emptyList();
+```
+#### 单元素集合
+也是不可变
+* List<T> singletonList(T o)
+* Map<K, V>singletonMap(K key, V value);
+* Set<T> singleton(T o)
+同样也可以用`List.of(T o)`
+#### 排序
+Collections 对List排序，会改动List元素位置，传入可变的List
+```java
+ Collections.sort(list);
+```
+#### 洗牌
+`Collections.shuffle(list);`
+#### 不可变集合
+提供了一组方法把可变集合封装成不可变集合,继续对原始的可变List进行增删是可以的，并且，会直接影响到封装后的“不可变”List,如果我们希望把一个可变List封装成不可变List，那么，返回不可变List后，最好立刻扔掉可变List的引用，这样可以保证后续操作不会意外改变原始对象，从而造成“不可变”List变化
+
+* 封装成不可变List：List<T> unmodifiableList(List<? extends T> list)
+* 封装成不可变Set：Set<T> unmodifiableSet(Set<? extends T> set)
+* 封装成不可变Map：Map<K, V> unmodifiableMap(Map<? extends K, ? extends V> m)
+```java
+      List<String> mutable = new ArrayList<>();
+        mutable.add("apple");
+        mutable.add("pear");
+        // 变为不可变集合:
+        List<String> immutable = Collections.unmodifiableList(mutable);
+        // 立刻扔掉mutable的引用:
+        mutable = null;
+```
+#### 线程安全集合
+从Java 5开始，引入了更高效的并发集合类,所以下述这几个同步方法已经没有什么用了。
+* 变为线程安全的List：List<T> synchronizedList(List<T> list)
+* 变为线程安全的Set：Set<T> synchronizedSet(Set<T> s)
+* 变为线程安全的Map：Map<K,V> synchronizedMap(Map<K,V> m)
+## IO
+### File对象
+#### File
+`File f = new File(path)` 可以传入相对路径、绝对路径
+* `getPath()` 返回传入的参数
+* `getAbsolutePath()` 返回绝对路径，`C:\Windows\System32\..\notepad.exe`
+* `getCanonicalPath()`返回规范路径，`C:\Windows\notepad.exe`
+
+File可以表示文件、或者目录，即使文件、目录不存在，也不报错，调用方法时，涉及磁盘操作时，会报错。
+* `boolean canRead()`
+* `boolean canWrite()`
+* `boolean canExecute()`
+* `long length()`文件字节大小
+* `boolean isFile()`是否是已存在的文件，不存在返回false
+* `boolean isDirectory()`
+  
+创建、删除文件
+```java
+File file = new File("./new.text");
+if(file.createNewFile()){ //创建成功
+  if(file.delete()){
+// 删除成功
+  }
+}
+```
+```java
+File f = File.createTempFile("temp-","txt");//临时文件
+f.deleteOnExit();//jvm退出后自动删除
+```
+遍历文件
+```java
+File f = new File("/home/bliss/miwork");
+File[] fs1 = f.listFiles();
+File[] fs2 = f.listFiles(new FilenameFilter(){
+  public boolean accept(File dir, String name){
+    return name.endswith(".bin");//返回bin结尾的文件
+  }
+});
+String[] fs3 = f.list();// 返回文件的名字
+```
+创建目录
+* `boolean mkdir()`
+* `boolean mkdirs()` 有必要会创建父目录
+* `boolean delete()`
+  
+Path，进行复杂的目录拼接、遍历
+```java
+  Path path = Paths.get("/home/bliss","note");
+  Path path1 = path.toAbsolutePath();
+  Path path2 = path.normalize();
+  File f = path2.toFile();
+  for(Path p : path){
+      logger.info("--{}",p); //--home --bliss --note
+  }
+```
+### InputStream
+抽象类，所有输入流的超类，`public abstract int read() throws IOException;`读取输入流的下一个字节，返回int值，如果末尾则-1.
+```java
+/*
+try(resource){
+
+}//自动关闭资源，不用close()
+编译器只看try(resource = ...)中的对象是否实现了java.lang.AutoCloseable接口，如果实现了，就自动加上finally语句并调用close()方法。InputStream和OutputStream都实现了这个接口，因此，都可以用在try(resource)中
+*/
+try(InputStream input = new FileInputStream("/home/bliss/out.txt")){
+            int n;
+            while((n=input.read())!=-1){
+                System.out.println(n);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        })
+```
+缓冲
+* `int read(byte[]b)`读取若干字节到byte[]数组，返回读取的字节数
+* `int read(byte[] b, int off, int len)`
+  ```java
+   byte[] b = new byte[1000];
+        try (InputStream input = new FileInputStream("/home/bliss/out.txt")) {
+            int n;
+            while ((n = input.read(b)) != -1) {
+                System.out.println("read " + n + "bytes");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+  ```
+阻塞  
+InputStream 实现类
+* FileInputStream 从文件获取输入流
+* ByteArrayInputStream 数据模拟输入流
+```java byte[] data = { 72, 101, 108, 108, 111, 33 };
+        try (InputStream input = new ByteArrayInputStream(data)) {
+            int n;
+            while ((n = input.read()) != -1) {
+                System.out.println((char)n);
+            }
+        }
+```
+### OutputStream
+抽象类，所有输出流超类，`public abstract void write(int b) throws IOException` 写一个**字节**到输出流（b&0xff),`close()`关闭输出流，`flush()`将强制缓冲区内容输出到目的地。   
+输入输出缓冲区   
+因为向磁盘、网络写入数据的时候，出于效率的考虑，操作系统并不是输出一个字节就立刻写入到文件或者发送到网络，而是把输出的字节先放到内存的一个缓冲区里（本质上就是一个byte[]数组），等到缓冲区写满了，再一次性写入文件或者网络。实际上，InputStream也有缓冲区。例如，从FileInputStream读取一个字节时，操作系统往往会一次性读取若干字节到缓冲区，并维护一个指针指向未读的缓冲区。然后，每次我们调用int read()读取下一个字节时，可以直接返回缓冲区的下一个字节，避免每次读一个字节都导致IO操作。当缓冲区全部读完后继续调用read()，则会触发操作系统的下一次读取并再次填满缓冲区。
+
+```java
+ File file = new File("/home/bliss/out.txt");
+        if(!file.isFile()){
+            file.createNewFile();
+        }
+
+        try(OutputStream outputStream = new FileOutputStream("/home/bliss/out.txt")){
+            outputStream.write(72);
+            outputStream.write("hello".getBytes("utf-8"));
+        }
+        byte[] b= new byte[1000];
+        InputStream inputStream = new FileInputStream("/home/bliss/out.txt");
+        inputStream.read(b);
+        inputStream.close();
+        logger.info(String.valueOf(getChars(b)));//Hhello
+```
+阻塞  
+OutputStream实现类
+* FileOutputStream
+* ByteArrayOutputStream 数组模拟输出流
+```java
+        byte[] data;
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            output.write("Hello ".getBytes("UTF-8"));
+            output.write("world!".getBytes("UTF-8"));
+            data = output.toByteArray();
+        }
+        System.out.println(new String(data, "UTF-8"));
+```
+`try(resource){}`可以多个资源，transferTo直接流转换
+```java
+// 读取input.txt，写入output.txt:
+try (InputStream input = new FileInputStream("input.txt");
+     OutputStream output = new FileOutputStream("output.txt"))
+{
+    input.transferTo(output); // transferTo的作用是?
+}
+```
+### Filter模式
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/07/11-55-30-7ecacae4b3c6cdf1939ee1427b1028cb-20201107115530-dd06bc.png)    
+1个“基础”组件再叠加各种“附加”功能组件的模式，称之为Filter模式（或者装饰器模式：Decorator），可以在运行期间动态增加功能。     
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/10/28/20-24-19-659fe9fd144b789a4b562c46a714a07d-20201028202419-11292e.png)
+jdk将InputStream分为两类
+* 提供数据的基础InputStream 
+  * FileInputStream
+  * ByteArrayInputStream
+  * ...
+* 提供额外功能的InputStream
+  * BufferedInputStream
+  * DigestInputStream
+  * ...
+```java
+InputStream file = new FileInputStream("test.gz");//确认提供数据源的InputStream
+InputStream buffered = new BufferedInputStream(file);// 给file添加buffer功能
+InputStream gzip = new GZIPInputStream(buffered);//读取zip文件功能
+```
+自定义 FileterInputStream
+```java
+public class Main {
+    public static void main(String[] args) throws IOException {
+        byte[] data = "hello, world!".getBytes("UTF-8");
+        try (CountInputStream input = new CountInputStream(new ByteArrayInputStream(data))) {
+            int n;
+            while ((n = input.read()) != -1) {
+                System.out.println((char)n);
+            }
+            System.out.println("Total read " + input.getBytesRead() + " bytes");
+        }
+    }
+}
+
+ private static class CountInputStream extends FilterInputStream {
+        protected CountInputStream(InputStream in) {
+            super(in);
+        }
+        private int count = 0;
+        @Override
+        public int read() throws IOException{
+            int n = in.read();
+            if (n != -1){
+                count += n;
+            }
+            return n;
+        }
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            int n =in.read(b,off,len);
+            count += len;
+            return n;
+        }
+    }
+}
+```
+### zip
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/10/28/20-36-31-4d3ef9bd3b5f4d72008118c88c96fed4-20201028203631-3350d5.png)
+### 读取classpath资源
+```java
+ InputStream in =  StreamTest.class.getResourceAsStream("/assembly.xml");
+    if(in !=null){   
+    }
+```
+```java
+Properties props = new Properties();
+props.load(inputStreamFromClassPath("/default.properties"));
+props.load(inputStreamFromFile("./conf.properties"));
+```
+### 序列化
+序列化，将对象变为二进制内容，即byte[]数组，序列化后可以将byte[]保存到文件中，或者通过网络传输。类序列化，必须实现Serializable接口(空接口为标记接口)
+```java
+public interface Serializable{}
+```
+#### 序列化
+```java
+ ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        try(ObjectOutputStream output = new ObjectOutputStream(buffer)){
+            output.writeInt(123);
+            output.writeObject(new Integer(1));
+        }
+        logger.info(Arrays.toString(buffer.toByteArray()));
+```
+#### 反序列化
+```java
+byte[] bb = buffer.toByteArray();
+
+        ByteInputStream byteInputStream = new ByteInputStream(bb, bb.length);
+        try(ObjectInputStream input = new ObjectInputStream(byteInputStream)){
+            int n = input.readInt();
+            Object o = input.readObject();
+            logger.info("n = {} o ={}",n, o);
+            
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+```
+readObject可能抛异常
+* ClassNotFoundException 没有找到指定的class
+* InvalidClassException class不匹配，反序列化时，类的字段的变量类型改变了
+  * 为避免class定义导致的不兼容，允许定义特殊变量serialVersionUID静态变量，标示序列化版本。
+  *  ```java
+      public class Person implements Serializable{
+        private static final long serialVersionUID = 27777777777L;
+      }
+     ```
+**反序列化时，由jvm直接构造出对象，不调用构造方法，构造方法内部代码，反序列化时不会调用**
+### Reader
+Reader本质是一个基于InputStream的byte到char的转换器,通过InputStreamReader，将InputStream - > Reader",使用try (resource)结构时，当我们关闭Reader时，它会在内部自动调用InputStream的close()方法，所以，只需要关闭最外层的Reader对象即可。
+```java
+InputStream input = new FileInputStream("path/.txt");
+Reader reader = new InputStreamReader(input, "UTF-8");
+```
+`public int read() throws IOException;`  
+`public int read(char[] c) throws IOException`
+|InputStream|Reader|
+|:-:|:-:|
+|字节流，以byte为单位|字符流，以char为单位|
+|(-1,0-255) int read()|(-1,0-65535) int read()|
+|int read(byte[] b)|int read(char[] c)|
+#### FileReader
+```java
+public void readFile() throws IOException(){
+  Reader reader = new FileReader("src/readme.txt");
+  for (;;){
+    int n= reader.read();
+    if(n==-1) break;
+    System.out.println((char)n);
+  }
+  reader.close():
+}
+```
+防止中文乱码，设定编码方式,java8不可用 :cry:
+```
+try(Reader reader = new FileReader(".txt",n.UTF_8)){
+
+}
+```
+#### CharArrayReader
+```java
+try (Reader reader = new CharArrayReader("Hello".toCharArray())) {
+}
+```
+#### StringReader
+同CharArrayReader相同，以String为数据源
+```java
+try (Reader reader = new StringReader("Hello")) {
+}
+```
+### Writer
+本质是OutputStream，可通过OutputStreamWriter转换
+```java
+try(Writer writer = new OutputStreamWriter(new FileOutputStream(".txt"), "UTF-8")){
+
+}
+```
+`void write(int c)`  
+`void write(char[] c)`  
+`void write(String s)` 
+|OutputStream|Writer|
+|:-:|:-:|
+|字节流，byte|字符流，char|
+|写入字节(0-255)void write(int b)|写入字符（0-65535）void write(int c)|
+|写入字节数组 void write(byte[] b) | void write(char[] c)|
+|None|写入String void write(String s)|
+#### FileWriter
+设定编码 java 8 不可用 :cry:
+```java
+try(Writer writer = new FileWriter(".txt",StandardCharsets.UTF_8)){
+  writer.write('H'); // 写入单个字符
+    writer.write("Hello".toCharArray()); // 写入char[]
+    writer.write("Hello"); // 
+}
+```
+#### CharArrayWriter
+```java
+try (CharArrayWriter writer = new CharArrayWriter()){
+  writer.write(65);
+  char [] data = writer.toCharArray();// A
+}
+```
+#### StringWriter
+维护了一个StringBuffer
+
+### PrintStream & PrintWriter
+PrintStream 是一种FileOutputStream, 输出的总是byte数据，在OutputStream接口上，额外提供写入各种数据类型的方法
+* print(int)/println(int)
+* print(boolean)
+* print(Object)// print(Object.toString())
+* 
+ 常用的`System.out.println()`实际就是利用PrintStream打印数据  
+ PrintWriter扩展writer接口，print/println输出char数据
+### Files
+java.nio中的工具类适合于小文件，大文件还是文件流，一次只读取一部分
+```java
+byte[] data = Files.readAllBytes(Paths.get("/path/to/txt"));
+String content1 = Files.readString(Paths.get(""));
+String content1 = Files.readString(Paths.get(""), StandardCharsets.UTF_8);
+List<String> lines = Files.readAllLines(Paths.get(""))
+
+Files.write(Paths.get(), new byte[]{});
+Files.writeString()
+```
+```diff
+- return 1+2;
++ return num1 + num2;
+```
+## 日期与时间
+日期指某一天，离散变化  
+夏令时---夏天开始时，时间拨后一个小时，夏天结束时，时间前拨一个小时
+### Date & Calendar
+epoch time 时间戳表示从1970年1月1日0点到现在经历的秒数 ,历史遗留问题存在两套API 
+* java.util 提供的`Date`、`Calendar`、`TimeZone`
+* java8 引入的java.time `LocalDateTime ZonedDateTime ZoneId`
+  * Month范围用1-12表示1月-12月
+  * Week范围用1-7表示周一-周日
+  
+#### Date
+不能转换时区，除了`toGMTString()`可以转换到GMT+0.00，其他都是当地时区，不能日期算数。
+```java
+public class Date
+    implements java.io.Serializable, Cloneable, Comparable<Date>
+{
+  private transient long fastTime; //表示毫秒
+}
+ System.out.println(date.getYear() + 1900); // 必须加上1900
+  System.out.println(date.getMonth() + 1); // 0~11，必须加上1
+  System.out.println(date.getDate()); // 1~31，不能加1
+  // 转换为String:
+  System.out.println(date.toString());
+  // 转换为GMT时区:
+  System.out.println(date.toGMTString());
+  // 转换为本地时区:
+  System.out.println(date.toLocaleString());
+
+  var sdf = new SimpleDateFormat("E MMM dd, yyyy");
+   System.out.println(sdf.format(date));
+```  
+#### Calendar
+通过单例模式获取，且是当前的时间
+```java
+Calendar c = Calendar.getInstance();
+int y = c.get(Calenday.YEAR);
+int m = c.get(Calendar.MONTH)+1; //月份+1
+int w = c.get(Calendar.DAY_OF_WEEK)// 星期 1-7 表示週日-----週六
+
+c.clear();
+c.set(Calendar.YEAR, 2019);
+Date date = c.getTime();// 转换为date
+```
+#### TimeZone
+Calendar的时区设置借助于TimeZone类  
+```java
+TimeZone tz = TimeZone.getDefault();
+TimeZone tz2 = TimeZone.getTimeZone("GMT+09:00");
+TimeZone tz3 = TimeZone.getTimeZone("American/New York");
+sout(tz.getID());//Etc/UTC
+```
+更换时区，时区信息存放在sdf中，时区转换只能通过SimpleDateFormat在显示时完成。
+```java
+   // 当前时间:
+        Calendar c = Calendar.getInstance();
+        // 清除所有:
+        c.clear();
+        // 设置为北京时区:
+        c.setTimeZone(TimeZone.getTimeZone("Asia/Shanghai"));
+        // 设置年月日时分秒:
+        c.set(2019, 10 /* 11月 */, 20, 8, 15, 0);
+          // 加5天并减去2小时:
+        c.add(Calendar.DAY_OF_MONTH, 5);
+        c.add(Calendar.HOUR_OF_DAY, -2);
+        // 显示时间:
+        var sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        sdf.setTimeZone(TimeZone.getTimeZone("America/New_York"));
+        System.out.println(sdf.format(c.getTime()));
+        // 2019-11-19 19:15:00
+```
+### LocalDateTime
+```java
+    LocalDate localDate = LocalDate.now();
+        LocalTime localTime = LocalTime.now();
+        LocalDateTime localDateTime = LocalDateTime.now();
+        logger.info("localDate {}",localDate);
+        logger.info("localTime {}",localTime);
+        logger.info("localDateTime {}",localDateTime);
+        logger.info("localDateTime {}",localDateTime.toLocalDate());
+        logger.info("localDateTime {}",localDateTime.toLocalTime());
+//创建指定日期时间
+          LocalDate localDate1 = LocalDate.of(2020,10,10);
+        LocalTime localTime1 = LocalTime.of(15,16,27);
+        LocalDateTime localDateTime1 = LocalDateTime.of(2020,11,11,11,11,11,11);
+        LocalDateTime localDateTime2 = LocalDateTime.of(localDate1, localTime1);
+
+         LocalDateTime localDateTime3 = LocalDateTime.parse("2020-11-19T16=5:16:17");
+        LocalDate localDate2 = LocalDate.parse("2020-11-19");
+        LocalTime localTime2 = LocalTime.parse("16:16:16");
+```
+在通过String创建指定日期的时间时，按照ISO 8601的格式
+* 日期`yyyy-MM-dd`
+* 时间`HH:mm:ss`
+* 带毫秒的时间`HH:mm:ss.SS`
+* 日期和时间`yyyy-MM-ddTHH:mm:ss`
+* 带毫秒的日期和时间`yyyy-MM-ddTHH:mm:ss.SSS`
+
+将非格式化的String解析为LocalDateTime，可以用DateTimeFormatter，解析为LocalDateTime时，String需要包含LocalDate和LocalTime信息。
+```java
+     DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss");
+        logger.info("1 {}", dateTimeFormatter.format(LocalDateTime.now()));
+
+        LocalDateTime localDateTime4 = LocalDateTime.parse("20201019 10:10:10",dateTimeFormatter);
+        logger.info("{}",localDateTime4);
+```
+提供了链式调用的算数运算
+```java
+localDateTime4.plusDays(1).minusDays(1);
+        logger.info("{}",localDateTime4);
+```
+修改时间时用with接口
+```java
+   localDateTime4.withYear(2021);
+
+  LocalDateTime firstDay = localDateTime4.toLocalDate().withDayOfMonth(1).atStartOfDay();
+        logger.info("本月的第一天 {}", firstDay);
+        LocalDate lastDay = localDateTime4.toLocalDate().with(TemporalAdjusters.lastDayOfMonth());
+        logger.info("本月最后一天{}", lastDay);
+        LocalDate nextMonthFirstDay = localDateTime4.toLocalDate().with(TemporalAdjusters.firstDayOfNextMonth());
+        logger.info("下月第一天{}",nextMonthFirstDay);
+        LocalDate firstWeekday = localDateTime4.toLocalDate().with(TemporalAdjusters.firstInMonth(DayOfWeek.MONDAY));
+        logger.info("本月第一个周一 {}",firstWeekday);
+```
+比较两个LocalDateTime的先后
+```java
+    LocalDateTime now = LocalDateTime.now();
+        LocalDateTime target = LocalDateTime.of(2019, 11, 19, 8, 15, 0);
+        System.out.println(now.isBefore(target));
+        System.out.println(LocalDate.now().isBefore(LocalDate.of(2019, 11, 19)));
+        System.out.println(LocalTime.now().isAfter(LocalTime.parse("08:15:00")));
+```
+时间、日期间隔
+LocalDateTime之间的差值由Duration表示，`PT123H10M3S`123小时,10分,3秒  
+LocalDate之间的差值由Period表示，`P1M21D`1月21天  
+P和T之间表示日期间隔，T后表示时间间隔,PT表示只有时间间隔。
+```java
+   LocalDateTime localDateTime11 = LocalDateTime.of(2020,10,10,10,10,10);
+        LocalDateTime localDateTime12 = LocalDateTime.of(2020,11,11,11,11,11);
+        Duration duration = Duration.between(localDateTime11,localDateTime12);
+        logger.info("{}",duration);//PT769H1M1S
+        long duration1 = localDateTime11.until(localDateTime12, MINUTES);
+        logger.info("{}",duration1);//46141
+
+        Period period = localDateTime11.toLocalDate().until(localDateTime12.toLocalDate());
+        logger.info("{}",period);//P1M1D
+        Period period1 = Period.between(localDateTime11.toLocalDate(), localDateTime12.toLocalDate());
+        logger.info("{}",period1);//P1M1D
+```
+可通过of、parse创建常量。
+```java
+  Duration duration2 = Duration.ofHours(1);
+        Duration duration3 = Duration.parse("P1DT2H");
+```
+#### ZonedDateTime
+提供了时区信息
+```java
+ ZonedDateTime zonedDateTime = ZonedDateTime.now();
+        ZonedDateTime zonedDateTime1 = ZonedDateTime.now(ZoneId.of("America/New_York"));
+        Set<String> ids = ZoneId.getAvailableZoneIds();
+        Iterator<String> it = ids.iterator();
+        while(it.hasNext()){
+            String id = (String)it.next();
+//            System.out.println(id);
+        }
+```
+通过with接口 时区转换
+```java
+ LocalDateTime localDateTime = LocalDateTime.of(2020,11,11,11,11,11);
+        ZonedDateTime zonedDateTime2 = localDateTime.atZone(ZoneId.systemDefault());
+        ZonedDateTime zonedDateTime3 = localDateTime.atZone(ZoneId.of("America/New_York"));
+
+        ZonedDateTime zonedDateTime4 = zonedDateTime3.withZoneSameInstant(ZoneId.of("America/New_York"));
+
+        LocalDateTime localDateTime1 = zonedDateTime4.toLocalDateTime();//丢弃时区信息
+```
+#### DateTimeFormatter
+DateTimeFormatter 不但是不变对象，还线程安全，simpleDateFormat仅在方法内部创建局部变量。
+* `DateTimeFormatter formatter1 = DateTimeFormatter.ofPattern("yyyy--MM-dd");`//2020-11-07T09:22 GMT
+* `DateTimeFormatter formatter2 =  DateTimeFormatter .ofPattern("E yyyy--MM-dd", local.US)`//Sat, November/07/2020 09:22
+```java
+ System.out.println(DateTimeFormatter.ISO_DATE.format(localDateTime1));
+        System.out.println(DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(localDateTime1));
+```
+#### Instant
+Instant表示高精度时间戳，它可以和ZonedDateTime以及long互相转换
+```java
+public final class Instant implements ... {
+    private final long seconds;
+    private final int nanos;
+}
+```
+```java
+// 以指定时间戳创建Instant:
+Instant ins = Instant.ofEpochSecond(1568568760);
+ZonedDateTime zdt = ins.atZone(ZoneId.systemDefault());
+System.out.println(zdt); // 2019-09-16T01:32:40+08:00[Asia/Shanghai]
+```
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/07/17-34-08-145561107d8a847fc9db555a15536b57-20201107173408-a01a42.png)
+
+## 单元测试
+### Junit单元测试工具
+测试方法`@Test`标注
+### Fixture
+```java
+invokeBeforeAll(xxxxTest.class)
+for(Method testMethod : findTestMethods(xxxxTest.class)){
+  var test = new xxxxTest();// 创建xxxxTest实例
+  invokeBeforeEach(test);
+    invokeTestMethod(test, testMethod);
+  invokeAfterEach(test);
+}
+invokeAfterAll(xxxxTest.class);
+```
+```java
+    Calculator calculator;
+    @BeforeEach
+    public void setUp(){
+        this.calculator = new Calculator();
+    }
+    @AfterEach
+    public void tearDown(){
+        this.calculator = null;
+    }
+    @Test
+    void testAdd(){
+        assertEquals(100, this.calculator.add(100));
+        assertEquals(150, this.calculator.add(50));
+    }
+    @Test
+    void testSub(){
+        assertEquals(-100, this.calculator.sub(100));
+        assertEquals(-50, this.calculator.sub(50));
+    }
+
+    private class Calculator {
+        private long n = 0;
+
+        public long add(long x) {
+            n = n + x;
+            return n;
+        }
+
+        public long sub(long x) {
+            n = n - x;
+            return n;
+        }
+    }
+```
+* 对于实例变量，在`@BeforeEach`中初始化，在`@AfterEach`中清理，它们在各个`@Test`方法中互不影响，因为是不同实例
+* 对于静态变量，在`@BeforeAll`中初始化，`@AfterAll`清理，它们在各个`@Test`中是唯一实例，会影响各个`@Test`方法
+* 大多数情况下，`@BeforeEach``@AfterEach`足够，只有资源初始化耗费时间长时，`@BeforeAll``@AfterAll`
+* 每次运行`@Test`方法前，Junit首先创建一个xxxxTest实例，每个`@Test`方法内部成员变量独立，不能也无法把成员变量状态从一个`@Test`转移到另一个`@Test`
+### 异常测试
+`assertThrows`提供测试的待捕获的异常，以及可能产生异常的代码
+```java
+  public static void testException(int n) {
+            if (n == 0) {
+                throw new IllegalArgumentException();
+            } else {
+                System.out.println("no exception");
+            }
+        }
+
+         @Test
+    void testNoneZero() {
+        assertThrows(IllegalArgumentException.class, () ->{
+            Calculator.testException(0);
+        });
+    }
+    @Test
+    void testNoneZero2() {
+        assertThrows(IllegalArgumentException.class, new Executable() {
+            @Override
+            public void execute() throws Throwable {
+                Calculator.testException(0);
+            }
+        });
+    }
+```
+### 条件测试
+* `@Disabled`禁用测试
+* `@EnableOS({OS.WINDOWS, OS.LINUX})`只在windows和linux系统下测试
+* `@EnabledIfSystemProperty(named = "os.arch", matches = ".*64.*")` 只在64bit系统下测试
+* `@EnabledIfEnvironmentVariable(named = "DEBUG", matches = "true")`需要传入环境变量DEBUG=true才执行测试
+  
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/09/16-34-55-a3cc0abe873412dc65f08d9556aa1b23-20201109163455-71cb5f.png)
+
+### 参数化测试
+`ParameterizedTest`测试方法至少接受一个参数，传入一组参数执行测试  
+1. ValueSource 直接提供数据
+```java
+ @ParameterizedTest
+    @ValueSource(ints = {0, 1, 5, 100})
+    void testAbs(int x) {
+        assertEquals(x, Math.abs(x));
+    }
+```
+2. MethodSource，允许创建一个和测试方法`testCapitalize`同名的静态接口`testCapitalize`，提供测试数据,或者提供`@MethodSource(value = {"testCapitalize2"})`提供接口名
+```java
+@ParameterizedTest
+    @MethodSource
+    void testCapitalize(String input, String output) {
+        assertEquals(output, capitalize(input));
+    }
+
+    static List<Arguments> testCapitalize() {
+        List<Arguments> list = new ArrayList<>();
+        list.add(Arguments.arguments("abc", "Abc"));
+        list.add(Arguments.arguments("APPLE", "Apple"));
+        return list;
+    }
+```
+   3. CsvSource, 一个字符串代表一行数据，逗号分割
+```java
+ @ParameterizedTest
+    @CsvSource({"abc, Abc" , "APPLE,Apple"})
+    void testCapitalizeUsingCsvSource(String input, String output) {
+        assertEquals(output, capitalize(input));
+    }
+```
+4. CsvFileSource 提供classpath下的csv文件
+```java
+   @ParameterizedTest
+    @CsvFileSource(resources = {"/test-capitalize.csv"})
+    void testCapitalizeUsingCsvFileSource(String input, String output) {
+        assertEquals(output, capitalize(input));
+    }
+```
+```csv
+//./test-capitalize.csv
+apple, Apple
+HELLO, Hello
+JUnit, Junit
+reSource, Resource
+```
+### 函数式编程
+函数作为基本运算单元，可以接收函数，也可以返回函数。   
+把定义了单抽象方法的接口称为`FunctionalInterface`,用注解`FunctionalInterface`标识 ，指明该接口类型声明是根据 Java 语言规范定义的函数式接口，根据定义，函数式接口只能有一个抽象方法，JDK8接口中的静态方法和默认方法，都不算是抽象方法
+```java
+@FunctionalInterface
+public interface Callable<V> {
+    V call() throws Exception;
+}
+```
+```java
+@FunctionalInterface
+public interface Comparator<T> {
+
+    int compare(T o1, T o2);
+
+    boolean equals(Object obj);// Object 定义方法，不算在接口内
+
+    default Comparator<T> reversed() {
+        return Collections.reverseOrder(this);
+    }
+
+    default Comparator<T> thenComparing(Comparator<? super T> other) {
+        ...
+    }
+    ...
+}
+```
+#### 方法引用
+使用Lambda表达式，我们就可以不必编写FunctionalInterface接口的实现类    
+**静态方法引用**
+```java
+static int cmp(String s1, String s2) {
+        return s1.compareTo(s2);
+    }
+      String[] array = new String[]{"Apple", "Orange", "Banana", "Lemon"};
+        Arrays.sort(array, LambdaTest::cmp);
+        logger.info("{}", Arrays.toString(array));
+```
+**实例方法**
+```java
+    public int compareTo(String anotherString) {
+        int len1 = value.length;
+        int len2 = anotherString.value.length;
+        int lim = Math.min(len1, len2);
+        char v1[] = value;
+        char v2[] = anotherString.value;
+
+        int k = 0;
+        while (k < lim) {
+            char c1 = v1[k];
+            char c2 = v2[k];
+            if (c1 != c2) {
+                return c1 - c2;
+            }
+            k++;
+        }
+        return len1 - len2;
+    }
+   Arrays.sort(array, String::compareTo);
+```
+**构造方法**
+```java
+ List<String> list = Arrays.asList(array);
+list.stream().map(Fruit::new).collect(Collectors.toList()).forEach(System.out::println);
+
+ static class Fruit {
+        String name;
+
+        public Fruit(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public String toString() {
+            return "Fruit{" +
+                    "name='" + name + '\'' +
+                    '}';
+        }
+    }
+```
+#### Stream   
+* Stream流同IO流的对比
+  ||`java.io` |`java.util.stream`|
+  |:-:|:-:|:-:|:-:|
+  |存储|顺序读写的byte或char|顺序输出的任意java对象实例|
+  |用途|序列化至文件或网络|内存计算\业务逻辑|
+  ----
+  ||java.util.list|java.util.stream|
+  |:-:|:-:|:-:|:-:|
+  |元素|已分配并存储在内存|可能未分配，实时计算|
+  |用途|操作已存在的对象|惰性计算|
+##### 创建 Stream
+* `Stream.of`
+  * ```java
+      Stream<String> stream = Stream.of("A","B");
+        Stream<Integer> stream2 = Stream.of(1,2);
+     ```
+* 基于数组或Collection
+  * ```java
+      Stream<String> stream3 = Arrays.stream(new String[]{"2", "2"});
+        List<String> list = new ArrayList<>();
+        Stream<String> stream4 = list.stream();
+        //        Stream<String> stream5 = List.of("x","y").stream(); java8 later 
+     ```
+* java.io.BufferedReader.lines()
+  * Stream<String> lines = Files.lines(Paths.get("./xtx"));
+* 静态工厂
+  * java.util.stream.IntStream.range()
+  * java.nio.file.Files.walk()
+* 自己构建 
+  * `java.util.Spliterator`
+  * `Stream.generate` 保存的是获取元素的算法
+    * ```java
+        Stream<Integer> stream6 = Stream.generate(new NaturalSupplier());
+        stream6.limit(6).forEach(System.out::print);
+        static class NaturalSupplier implements Supplier<Integer>{
+        int n = 0;
+        @Override
+        public Integer get(){
+            n++;
+            return n;
+        }
+    }
+       ```
+* 其他
+  * Random.ints()
+  * BitSet.stream()
+  * Pattern.splitAsStream(java.lang.CharSequence)
+  * JarFile.stream()
+  * java泛型不支持基本类型，提供了`IntStream、LongStream、DoubleStream`，等同于`Stream<Integer>`只不过，这种会boxing、unboxing耗时严重。
+    * ```java
+       IntStream is = Arrays.stream(new int[]{1,2,3});
+       ```
+##### 基本概念
+Stream操作类型分为两种:
+* Intermediate 打开流，并做过滤、映射，为惰性操作，仅仅调用这类方法并未真正开始流的遍历
+  * `map(mapToInt、flatMap)、filter、distinct、sorted、peek、limit、skip、parallel、sequential、unordered`
+* Terminal 一个流只能有一个Terminal操作，且操作后，Stream被消耗，无法被再次操作。Terminal操作的执行，才会真正的遍历流，生成一个结果或者side effect。  
+  * `forEach、forEachOrdered、toArray、reduce、collect、min、max、count、anyMatch、allMatch、iterator、findFirst`
+* short-circuiting
+  * 对于interminate操作，接受一个无限大的Stream，但是返回一个有限的Stream
+  * 对于一个terminal操作，接受一个无限大的Stream，但能在有限时间计算出结果
+  * anyMatch、allMatch、noneMatch、findFirst
+  
+***多个转换操作只会在 Terminal 操作的时候融合起来，一次循环完成。可以理解为，Stream 里有个操作函数的集合，每次转换操作就是把转换函数放入这个集合中，在 Terminal 操作的时候循环 Stream 对应的集合，然后对每个元素执行所有的函数***  
+***当limit/skip操作放在sorted后面时，不会影响sorted的调用，尽量排序前进行 limit 和 skip***
+
+##### map
+将一个元素映射到另一个元素上  ,map接受Function对象，Function中的apply函数，将T转换为R。
+`<R> Stream<R> map(Function<? super T, ? extends R> mapper);`   
+```java
+@FunctionalInterface
+public interface Function<T, R> {
+    R apply(T t);
+
+    default <V> Function<V, R> compose(Function<? super V, ? extends T> before) {
+        Objects.requireNonNull(before);
+        return (V v) -> apply(before.apply(v));
+    }
+    default <V> Function<T, V> andThen(Function<? super R, ? extends V> after) {
+        Objects.requireNonNull(after);
+        return (T t) -> after.apply(apply(t));
+    }
+    static <T> Function<T, T> identity() {
+        return t -> t;
+    }
+}
+
+  IntStream is = Arrays.stream(new int[]{1,2,3});
+        int[] ret = is.map( n-> n*n).toArray();
+        System.out.println(Arrays.toString(ret));
+```
+##### filter
+满足条件的会留下，否则会被丢弃 ，filter接受Predicate对象
+```java
+@FunctionalInterface
+public interface Predicate<T> {
+    // 判断元素t是否符合条件:
+    boolean test(T t);
+}
+
+stream.filter(n -> n.equalsIgnoreCase("A")).forEach(System.out::println);
+```
+##### reduce
+聚合方法，将所有元素按照聚合函数聚合成一个结果  , BinaryOperator的apply操作。  
+`int sum = Stream.of(1, 2, 3, 4, 5, 6, 7, 8, 9).reduce(0, (acc, n) -> acc + n);`
+```java
+T reduce(T identity, BinaryOperator<T> accumulator);
+
+@FunctionalInterface
+public interface BinaryOperator<T> extends BiFunction<T,T,T> {
+    public static <T> BinaryOperator<T> minBy(Comparator<? super T> comparator) {
+        Objects.requireNonNull(comparator);
+        return (a, b) -> comparator.compare(a, b) <= 0 ? a : b;
+    }
+    public static <T> BinaryOperator<T> maxBy(Comparator<? super T> comparator) {
+        Objects.requireNonNull(comparator);
+        return (a, b) -> comparator.compare(a, b) >= 0 ? a : b;
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------------------------
+@FunctionalInterface
+public interface BiFunction<T, U, R> {
+
+    R apply(T t, U u);
+
+    default <V> BiFunction<T, U, V> andThen(Function<? super R, ? extends V> after) {
+        Objects.requireNonNull(after);
+        return (T t, U u) -> after.apply(apply(t, u));
+    }
+}
+
+  // 按行读取配置文件:
+        List<String> props = List.of("profile=native", "debug=true", "logging=warn", "interval=500");
+        Map<String, String> map = props.stream()
+                // 把k=v转换为Map[k]=v:
+                .map(kv -> {
+                    String[] ss = kv.split("\\=", 2);
+                    return Map.of(ss[0], ss[1]);
+                })
+                // 把所有Map聚合到一个Map:
+                .reduce(new HashMap<String, String>(), (m, kv) -> {
+                    m.putAll(kv);
+                    return m;
+                });
+        // 打印结果:
+        map.forEach((k, v) -> {
+            System.out.println(k + " = " + v);
+        });
+```
+当reduce没有初始值时，返回的是Optional，避免NPE问题，且提供的是编译时检查。
+```java
+        List<Integer> list1 = new ArrayList<>();
+        list1.add(1);
+        list1.add(2);
+        Optional sum = list1.stream().reduce((acc, n)-> acc+n);
+        System.out.println(sum.get());
+```
+##### 输出结果
+* 输出为List  `stream.collect(Collectors.toList());`
+  * `List<String> list2 = stream.collect(Collectors.toCollection(ArrayList::new));`
+* 输出为数组 `list.stream().toArray(String[]::new);` //不加String::new 返回Object[]
+* 输出为Map
+  * ```java
+      Stream<String> stream = Stream.of("APPL:Apple", "MSFT:Microsoft");
+        Map<String, String> map = stream
+                .collect(Collectors.toMap(
+                        // 把元素s映射为key:
+                        s -> s.substring(0, s.indexOf(':')),
+                        // 把元素s映射为value:
+                        s -> s.substring(s.indexOf(':') + 1)));
+     ```
+##### 其他操作
+* 排序 
+  *  ```java
+       List<String> list = List.of("Orange", "apple", "Banana")
+            .stream()
+            .distinct()
+            .collect(Collectors.toList());
+      ```
+* 去重 
+  * ```java
+      List<String> list = List.of("Orange", "apple", "Banana")
+    .stream()
+    .sorted(String::compareToIgnoreCase)
+    .collect(Collectors.toList());
+     ```
+* 截取
+  * ```java
+     List.of("A", "B", "C", "D", "E", "F")
+    .stream()
+    .skip(2) // 跳过A, B
+    .limit(3) // 截取C, D, E
+    .collect(Collectors.toList()); // [C, D, E]
+     ```
+* 合并
+  * ```java
+     Stream<String> s1 = List.of("A", "B", "C").stream();
+    Stream<String> s2 = List.of("D", "E").stream();
+    // 合并:
+    Stream<String> s = Stream.concat(s1, s2);
+    System.out.println(s.collect(Collectors.toList())); // [A, B, C, D, E]
+     ```
+* flatMap 输入多个对象，输出一个对象，多对一
+  * ```java
+     Stream<List<Integer>> s = Stream.of(
+        Arrays.asList(1, 2, 3),
+        Arrays.asList(4, 5, 6),
+        Arrays.asList(7, 8, 9));
+        Stream<Integer> i = s.flatMap(list -> list.stream());
+     ```
+* 并行，转换为并行的Stream
+  * ```java
+     String[] result = s.parallel() // 变成一个可以并行处理的Stream
+                   .sorted() // 可以进行并行排序
+                   .toArray(String[]::new);
+     ```
+#### 网络编程
+网络号=Ip&子网掩码，网络号相同表示在同一个网络，不在同一个网络通信需要路由、网关。  
+`nslookup`查看域名对应IP
+##### TCP
+```java
+public class TCPServer {
+    public static void main(String[] args) throws IOException {
+        ServerSocket ss = new ServerSocket(6666);
+        while (true) {
+            Socket sock = ss.accept();//
+            System.out.println("accepted from " + sock.getRemoteSocketAddress());
+            Thread t = new Handler(sock);
+            t.run();
+        }
+    }
+    static class Handler extends Thread {
+        Socket socket;
+
+        public Handler(Socket socket) {
+            this.socket = socket;
+        }
+
+        @Override
+        public void run() {
+            try (InputStream inputStream = this.socket.getInputStream()) {
+                try (OutputStream outputStream = this.socket.getOutputStream()) {
+                    handle(inputStream, outputStream);
+                }
+            } catch (IOException e) {
+                try{
+                    this.socket.close();
+                } catch (IOException ioException) {
+                    ioException.printStackTrace();
+                }
+                System.out.println("client disconected");
+            }
+        }
+
+        private void handle(InputStream inputStream, OutputStream outputStream) throws IOException {
+            Writer writer = new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8));
+            Reader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+
+            writer.write("hello\n");
+            writer.flush();
+            while (true) {
+                String s = ((BufferedReader) reader).readLine();//
+                if (s.equalsIgnoreCase("bye")) {
+                    writer.write("bye\n");
+                    writer.flush();
+                    break;
+                }
+                writer.write("ok " + s + "\n");
+                writer.flush();
+            }
+        }
+    }
+}
+```
+```java
+public class TCPClient {
+    public static void main(String[] args) throws IOException {
+        Socket socket = new Socket("localhost",6666);
+        try(InputStream inputStream = socket.getInputStream()){
+            try(OutputStream outputStream = socket.getOutputStream()){
+                handler(inputStream, outputStream);
+            }
+        }
+    }
+    private static void handler(InputStream inputStream, OutputStream outputStream) throws IOException {
+        Writer writer = new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8));
+        Reader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+        Scanner scanner =new Scanner(System.in);
+        System.out.println("[sever] "+ ((BufferedReader) reader).readLine());
+        while(true){
+            System.out.print(">>>");
+            String s = scanner.nextLine();
+            writer.write(s);
+            ((BufferedWriter) writer).newLine();
+            writer.flush();
+            String resp = ((BufferedReader) reader).readLine();
+            System.out.println("<<< "+resp);
+            if(resp.equalsIgnoreCase("bye")){
+                break;
+            }
+        }
+    }
+}
+```
+##### UDP
+```java
+public class UDPServer {
+    public static void main(String[] args) throws IOException {
+        DatagramSocket datagramSocket = new DatagramSocket(6666);
+        while (true) {
+            byte[] buffer = new byte[10];
+            DatagramPacket datagramPacket = new DatagramPacket(buffer, buffer.length);
+            datagramSocket.receive(datagramPacket);
+            System.out.println("get connect from "+datagramPacket.getAddress()+" "+datagramPacket.getPort());
+//            收取到的是一个String，那么，通过DatagramPacket返回的packet.getOffset()和packet.getLength()确定数据在缓冲区的起止位置
+            String s = new String(datagramPacket.getData(), datagramPacket.getOffset(), datagramPacket.getLength(), StandardCharsets.UTF_8);
+            byte[] data = "ACK".getBytes();
+            datagramPacket.setData(data);
+//            当服务器收到一个DatagramPacket后，通常必须立刻回复一个或多个UDP包，因为客户端地址在DatagramPacket中，每次收到的DatagramPacket可能是不同的客户端，如果不回复，客户端就收不到任何UDP包
+            datagramSocket.send(datagramPacket);
+        }
+    }
+}
+```
+```java
+public class UDPClient {
+    public static void main(String[] args) throws IOException {
+        DatagramSocket datagramSocket = new DatagramSocket();
+        datagramSocket.setSoTimeout(1000);
+//这个connect()方法不是真连接，它是为了在客户端的DatagramSocket实例中保存服务器端的IP和端口号，
+// 确保这个DatagramSocket实例只能往指定的地址和端口发送UDP包，不能往其他地址和端口发送。这么做不是UDP的限制，而是Java内置了安全检查
+        datagramSocket.connect(InetAddress.getByName("localhost"), 6666);
+        byte[] data = "Hello".getBytes();
+        DatagramPacket datagramPacket = new DatagramPacket(data, data.length);
+        datagramSocket.send(datagramPacket);
+
+        byte[] buffer = new byte[7];
+        datagramPacket = new DatagramPacket(buffer, buffer.length);
+        datagramSocket.receive(datagramPacket);
+        String resp = new String(datagramPacket.getData(), datagramPacket.getOffset(), datagramPacket.getLength());
+
+        datagramSocket.disconnect();
+//        注意到disconnect()也不是真正地断开连接，它只是清除了客户端DatagramSocket实例
+//        记录的远程服务器地址和端口号，这样，DatagramSocket实例就可以连接另一个服务器端
+        System.out.println("rec " + resp);
+    }
+}
+```
+##### Http
+HTTP请求由HTTP Header 和HTTP Body组成    
+HTTP Header
+* 请求方法 路径 HTTP版本
+* Host 域名
+* User-Agent 客户端自身标示信息
+* Accept 客户端能够接受的HTTP响应格式
+* Accept-Language 客户端接收的语言
+
+GET请求只有HTTP Header没有HTTP Body，参数都放在url上，以URL编码方式，且由于URL长度限制，参数个数有限制。
+```java
+GET /sync HTTP/1.1
+Host: 127.0.0.1:9614
+Connection: keep-alive
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.183 Safari/537.36
+Accept: */*
+Sec-Fetch-Site: none
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Accept-Encoding: gzip, deflate, br
+Accept-Language: zh-CN,zh;q=0.9,en;q=0.8
+Cookie: JSESSIONID=aaaf8YpcGdbNPdWbaqipx; GUID=51gUXRwhcyQCA05O1j8q
+```
+POST请求存在HTTP Body，参数都放在HTTP Body中，且Content-Type中可以设置编码格式   
+```java
+POST /video HTTP/1.1
+Host: 127.0.0.1:9614
+Connection: keep-alive
+Content-Length: 1576
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.183 Safari/537.36
+Content-Type: text/plain;charset=UTF-8
+Accept: */*
+Origin: chrome-extension://dkckaoghoiffdbomfbbodbbgmhjblecj
+Sec-Fetch-Site: none
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Accept-Encoding: gzip, deflate, br
+Accept-Language: zh-CN,zh;q=0.9,en;q=0.8
+Cookie: JSESSIONID=aaaf8YpcGdbNPdWbaqipx; GUID=51gUXRwhcyQCA05O1j8q
+
+```
+HTTP响应由HTTP Header 和HTTP Body组成    
+
+GET请求响应
+```java
+HTTP/1.1 200 OK
+Content-Length: 1601
+Content-Type: application/json
+Cache-Control: no-cache, no-store, must-revalidate
+Pragma: no-cache
+Expires: 0
+Content-Length: 1601
+```
+POST请求响应  
+```java
+HTTP/1.1 200 OK
+content-type: application/json
+Cache-Control: max-age=0, no-cache, must-revalidate
+Content-Length: 2511
+```
+##### RMI
+严格依赖于序列化，建议rpc框架   
+服务器和客户端必须共享一个接口
+```java
+public interface WorldClock extends Remote {
+    LocalDateTime getLocalDateTime(String zoneId) throws RemoteException;
+}
 
 
+public class WorldClockService implements WorldClock {
+
+    @Override
+    public LocalDateTime getLocalDateTime(String zoneId) throws RemoteException {
+        return LocalDateTime.now(ZoneId.of(zoneId)).withNano(0);
+    }
+}
+```
+提供服务者
+```java
+public class RMIServer {
+    public static void main(String[] args) throws RemoteException {
+        System.out.println("create World Remote Service");
+//       实例化一个WorldClock
+        WorldClock worldClock = new WorldClockService();
+//         // 将此服务转换为远程服务接口:
+        WorldClock skeleton = (WorldClock) UnicastRemoteObject.exportObject(worldClock, 0);
+//         // 将RMI服务注册到1099端口:
+        Registry registry = LocateRegistry.createRegistry(1099);
+        // 注册此服务，服务名为"WorldClock":
+        registry.rebind("WorldClock", skeleton);
+
+    }
+}
+```
+使用服务者
+```java
+public class RMIClient {
+    public static void main(String[] args) throws RemoteException, NotBoundException {
+        // 连接到服务器localhost，端口1099:
+        Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+        // 查找名称为"WorldClock"的服务并强制转型为WorldClock接口:
+        WorldClock worldClock = (WorldClock) registry.lookup("WorldClock");
+        // 正常调用接口方法:
+        LocalDateTime now = worldClock.getLocalDateTime("Asia/Shanghai");
+        // 打印调用结果:
+        System.out.println(now);
+    }
+}
+```
+#### Java Web
+##### Web
+HTTP服务器，只需要在tcp服务端，在handle接口中，处理HTTP请求，并返回HTTP响应  
+```java
+private void handle(InputStream input, OutputStream output) throws IOException {
+    System.out.println("Process new http request...");
+    var reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
+    var writer = new BufferedWriter(new OutputStreamWriter(output, StandardCharsets.UTF_8));
+    // 读取HTTP请求:
+    boolean requestOk = false;
+    String first = reader.readLine();
+    if (first.startsWith("GET / HTTP/1.")) {
+        requestOk = true;
+    }
+    for (;;) {
+        String header = reader.readLine();
+        if (header.isEmpty()) { // 读取到空行时, HTTP Header读取完毕
+            break;
+        }
+        System.out.println(header);
+    }
+    System.out.println(requestOk ? "Response OK" : "Response Error");
+    if (!requestOk) {
+        // 发送错误响应:
+        writer.write("HTTP/1.0 404 Not Found\r\n");
+        writer.write("Content-Length: 0\r\n");
+        writer.write("\r\n");
+        writer.flush();
+    } else {
+        // 发送成功响应:
+        String data = "<html><body><h1>Hello, world!</h1></body></html>";
+        int length = data.getBytes(StandardCharsets.UTF_8).length;
+        writer.write("HTTP/1.0 200 OK\r\n");
+        writer.write("Connection: close\r\n");
+        writer.write("Content-Type: text/html\r\n");
+        writer.write("Content-Length: " + length + "\r\n");
+        writer.write("\r\n"); // 空行标识Header和Body的分隔
+        writer.write(data);
+        writer.flush();
+    }
+}
+```
+##### Servlet 入门
+正常HTTP服务器，需要多线程的TCP服务，并在TCP连接中处理HTTP请求，发送HTTP响应。  
+处理TCP连接，解析HTTP协议底层交给现成的WEB服务器，只需将自己的程序跑在web服务器上。JavaEE提供了Servlet API，编写自己的Servlet处理HTTP请求，而Web服务器实现Servlet API接口 。   
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/21/12-53-36-8051def36321ef7385330475c53bb86b-20201121125336-f2fffe.png)     
+整个项目架构如图：      
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/21/13-42-31-2e364ae4a495dc97504e086505e7d343-20201121134231-124dd4.png)
+打包方式为war包，Java Web Application Archive
+
+```java
+@WebServlet(urlPatterns = "/")
+public class HelloWorld extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        resp.setContentType("text/html");
+        PrintWriter pw = resp.getWriter();
+        pw.write("<h1>Hello World!<h1>");
+        pw.flush();
+    }
+}
+```
+```xml
+  <groupId>com.dami</groupId>
+    <artifactId>NetworkTest</artifactId>
+    <packaging>war</packaging>
+    <version>1.0-SNAPSHOT</version>
+    <dependencies>
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>servlet-api</artifactId>
+            <version>3.0-alpha-1</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax</groupId>
+            <artifactId>javaee-api</artifactId>
+            <version>6.0-RC2</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+```
+支持Servlet API的服务器(Servlet 容器)常见有Tomcat，Jetty，将打包好的war包放在Tomcat的webapps目录下，后启动Tomcat即可。
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/21/13-47-22-639c2591cfb5b836c2f9f84459c66a93-20201121134722-a8daa9.png)   
+在IDEA的 ApplicationContext可以设置域名后的第一级path，对应浏览器的URL。
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/21/13-48-14-5765a1f0cf0379c385332835e16843bd-20201121134814-2f5453.png) 
+
+* **假设将hello.war放在webapps目录，那么第一级path为/hello，如果将hello.war更名为ROOT.war,那么第一级path为/**   
+* 启动Tomcat服务器实际上是启动Java虚拟机，执行Tomcat的main()方法，然后由Tomcat负责加载我们的.war文件，并创建一个HelloServlet实例，最后以多线程的模式来处理HTTP请求。如果Tomcat服务器收到的请求路径是/（假定部署文件为ROOT.war），就转发到HelloServlet并传入HttpServletRequest和HttpServletResponse两个对象
+
+在Servlet容器中运行的Servlet特点如下
+* 无法在代码中直接通过new创建Servlet实例，由Servlet容器自动创建Servlet实例
+* Servlet容器只会给每个Servlet类创建唯一实例
+* Servlet容器会使用多线程执行doGet() doPost()方法
+
+* Servlet中定义的实例变量会被多个线程同时访问，注意线程安全
+* HttpServletRequest 和HttpServletResponse 实例是由Servlet容器传入的局部变量，只能被当前线程访问，不存在多线程访问问题
+* 在doGet、doPost方法中，如果使用了ThreadLocal，但没有清理，那么它的状态有可能影响到下次的某个请求，Servlet容器可能使用线程池实现线程复用。
+
+* 嵌入式tomcat
+  
+```xml
+  <properties>
+    <tomcat.version>9.0.37</tomcat.version>
+  </properties>
+ <dependencies>
+    <dependency>
+      <groupId>org.apache.tomcat.embed</groupId>
+      <artifactId>tomcat-embed-core</artifactId>
+      <version>${tomcat.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.tomcat.embed</groupId>
+      <artifactId>tomcat-embed-jasper</artifactId>
+      <version>${tomcat.version}</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+```
+```java
+public class Main {
+    public static void main(String[] args) throws LifecycleException {
+        // 启动Tomcat:
+        Tomcat tomcat = new Tomcat();
+        tomcat.setPort(Integer.getInteger("port", 8081));
+        tomcat.getConnector();
+        // 创建webapp:
+        Context ctx = tomcat.addWebapp("", new File("src/main/webapp").getAbsolutePath());
+        WebResourceRoot resources = new StandardRoot(ctx);
+        resources.addPreResources(
+                new DirResourceSet(resources, "/WEB-INF/classes", new File("target/classes").getAbsolutePath(), "/"));
+        ctx.setResources(resources);
+        tomcat.start();
+        tomcat.getServer().await();
+    }
+}
+```
+无法初始化主类 Main 时，IDEA在Run/Debug Configurations -> Application -> Main -> Configuration -> Use classpath of module，勾选Include dependencies with “Provided” scope     
+https://blog.csdn.net/maimiho/article/details/105953165
+##### Servlet进阶
+一个Web App就是由一个、多个Servlet组成，每个Servlet通过注解说明自己处理的路径。 
+浏览器所有请求总是由WebServer先接收，再根据请求路径通过Dipatch路径分发到不同的Servlet，其中/会接手所有未匹配的路径,相当于/*  
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/21/16-47-27-7d4806bab1f5658aafce4d7ae6807bc0-20201121164727-9035ad.png)   
+
+* HttpServletRequest
+  * getMethod() 返回请求方法 'GET' 'POST'
+  * getRequestURI 返回请求路径，不包括请求参数  '/hello'
+  * getQueryString 返回请求参数 'name=bob&a=1'
+  * getParameter(name)返回请求参数，GET从url中读取，POST从body中读取
+  * getContentType 获取请求body的类型，'application/x-www-form-urlencoded'
+  * getContextPath 获取当前挂载webapp的路径，对于ROOT来说，为空''
+  * getCookies()返回请求携带的cookie
+  * getHeader(name) 获取指定的header
+  * getHeaderNames()返回所有Header名称
+  * getInputStream() 如果请求有body，打开一个输入流读取body
+  * getReader() 类似getInputStream,返回的是Reader
+  * getRemoteAddr()返回客户端的IP地址
+  * getScheme()返回协议类型 'http' 'https'
+  * set/getAttribute() 给当前HttpServletRequest对象附加多个key-value
+* HttpServletResponse
+  * setStatus(sc)：设置响应代码，默认是200；
+  * setContentType(type)：设置Body的类型，例如，"text/html"
+  * etCharacterEncoding(charset)：设置字符编码，例如，"UTF-8"；
+  * setHeader(name, value)：设置一个Header的值；
+  * addCookie(cookie)：给响应添加一个Cookie；
+  * ddHeader(name, value)：给响应添加一个Header，因为HTTP协议允许有多个相同的Header；
+  
+* **注意* * :exclamation:  
+* 写入响应时，需要通过getOutputStream()获取写入流，或者通过getWriter()获取字符流，二者只能获取其中一个      
+* 写入响应时，无需设置setContentLength，服务器会根据写入的字节数自动设置，如果写入的数据量很小，会先写入缓冲区，如果很大，服务器采用chunked编码让浏览器能识别数据结束符，从而不需要设置length头    
+* 写入后，调用flush，及时将缓冲区数据发送，而不要调用close,浏览器会复用TCP连接。    
+* 一个Servlet类在服务器中只有一个实现类，但是对个每个HTTP请求，服务器会使用多线程执行请求，doGet、doPost方法都是多线程执行的
+* 对于每个请求，服务器会创建唯一的HttpServletRequest和HttpServletResponse实例，只在当前处理线程有效，总是局部变量，不存在多线程共享问题
+###### 重定向与转发
+转发和重定向的区别在于，转发是在Web服务器内部完成的,转发的时候，浏览器的地址栏路径仍然是之前的，浏览器并不知道该请求在Web服务器内部实际上做了一次转发   
+
+* 重定向-发送请求时，浏览器返回一个重定向指令，告诉浏览器地址已经变化，使用新的URL再重新发送请求,返回一个302.
+  * 重定向有两种：一种是302响应，称为临时重定向，一种是301响应，称为永久重定向。两者的区别是，如果服务器发送301永久重定向响应，浏览器会缓存/hi到/hello这个重定向的关联，下次请求/hi的时候，浏览器就直接发送/hello请求了。
+  * ```java
+      @WebServlet(urlPatterns = "/hi")
+      public class RedirectServlet extends HttpServlet {
+          protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+              // 构造重定向的路径:
+              String name = req.getParameter("name");
+              String redirectToUrl = "/hello" + (name == null ? "" : "?name=" + name);
+              // 发送重定向响应:
+              resp.sendRedirect(redirectToUrl);
+
+              //永久重定向
+              //resp.setStatus(HttpServletResponse.SC_MOVED_PERMANENTLY); // 301
+              //resp.setHeader("Location", "/hello");
+          }
+      }
+      ```
+* 转发-内部转发，当Servlet处理请求时，可以自己不处理转发给其他的Servlet
+  * ```java
+      @WebServlet(urlPatterns = "/morning")
+    public class ForwardServlet extends HttpServlet {
+        protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+            req.getRequestDispatcher("/hello").forward(req, resp);
+        }
+    }
+     ```
+###### Session和Cookie
+HTTP协议无状态，服务器无法区分两个HTTP请求是否是同一个浏览器发送的。为跟踪用户状态，服务器向浏览器分配唯一一个ID（Session），以cookie形式发送到浏览器，浏览器之后访问总是附带此cookie，以此达到识别用户身份。
+* Session   
+基于唯一ID识别用户身份的机制称为Session,每个用户第一次访问服务器后，会自动获得一个Session ID。如果用户在一段时间内没有访问服务器，那么Session会自动失效，下次即使带着上次分配的Session ID访问，服务器也认为这是一个新用户，会分配新的Session ID。    
+服务器通过Cookie的`JSESSIONID`识别Session。第一次调用`getSession`时，Servlet容器自动创建一个Session ID，后通过JSESSION的Cookie发送给服务器
+```html
+Cookie: Idea-55166956=29b77da5-2002-44d5-a2ff-08eb2d71099b; Hm_lvt_3944d5fe13ed7bea2ad90c9bca1b1196=1596503132; Hm_lpvt_3944d5fe13ed7bea2ad90c9bca1b1196=1596503166; JSESSIONID=F3582F3F809F2B5BAC7AA669DDF5665A
+```
+Java EE Servlet 通过HttpSession 类提供了对Session的支持
+  * 将数据存储在Session中
+    ```java
+          @WebServlet(urlPatterns = "/signin")
+      public class SignInServlet extends HttpServlet {
+          private static final Map<String, String> users = new HashMap<>();
+          static{
+              users.put("bob","bob123");
+              users.put("alice","alice123");
+          }
+          @Override
+          protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+              resp.setContentType("text/html");
+              PrintWriter pw = resp.getWriter();
+
+              pw.write("<h1>Sign In</h1>");
+              pw.write("<form action=\"/signin\" method=\"post\">");
+              pw.write("<p>Username: <input name=\"username\"></p>");
+              pw.write("<p>Password: <input name=\"password\" type=\"password\"></p>");
+              pw.write("<p><button type=\"submit\">Sign In</button> <a href=\"/\">Cancel</a></p>");
+              pw.write("</form>");
+              pw.flush();
+          }
+          @Override
+          protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+              String name = req.getParameter("username");
+              String password = req.getParameter("password");
+              String expectedPassword = users.get(name.toLowerCase());
+              System.out.println("expectedPassword "+expectedPassword);
+              System.out.println("password "+password);
+              System.out.println("name "+name);
+
+              if (expectedPassword != null && expectedPassword.equals(password)) {
+                  // 登录成功: 将用户名称存储到Session中
+                  req.getSession().setAttribute("user", name);
+                  resp.sendRedirect("/");
+              } else {
+                  resp.sendError(HttpServletResponse.SC_FORBIDDEN);
+              }
+          }
+      }
+     ```
+* Session 使用
+   ```java
+      @WebServlet(urlPatterns = "/")
+    public class IndexServlet extends HttpServlet {
+        @Override
+        protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+          //取出Session中某个属性
+            String user = (String) req.getSession().getAttribute("user");
+            resp.setContentType("text/html");
+            resp.setCharacterEncoding("utf-8");
+            resp.setHeader("X-Powered-By", "JavaEE Servlet");
+
+            PrintWriter pw = resp.getWriter();
+            pw.write("<h1> Welcome," + (user != null ? user : "Guest") + "</h1>");
+            if (user != null) {
+                pw.write("<p><a href= \"/signin\">Sign In</p>");
+            } else {
+                pw.write("<p><a href= \"/signin\">Sign In</p>");
+            }
+            pw.flush();
+        }
+    }
+   ```
+* Session 剔除某个属性
+   ```java
+      @WebServlet(urlPatterns = "/signout")
+  public class SignOutServlet {
+      protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+          req.getSession().removeAttribute("user");
+          resp.sendRedirect("/");
+      }
+  }
+   ```
+* 总结
+  * JSESSIONID由Servlet容器自动创建，目的为维持一个浏览器会话，和登录逻辑没有关系
+  * 登入登出逻辑根据HttpSession 是否存在一个user判断的，登出后，SessionID不会改变，
+  * 使没有登录功能，仍然可以使用HttpSession追踪用户，例如，放入一些用户配置信息等
+  * 也可以通过隐藏表单、URL末尾附加ID等机制实现Session
+  * 无状态集群的Web Server时，会导致Server1的Session在Server2....等不存在
+    * 所有Web Server之间进行Session复制
+    * 采用粘滞会话（Sticky Session）机制，即反向代理在转发请求的时候，总是根据JSESSIONID的值判断，相同的JSESSIONID总是转发到固定的Web Server，但这需要反向代理的支持
 
 
+* Cookie
+HttpSession本质上是提供一个名为`JSESSIONID`的Cookie来跟踪用户会话的，除此Cookie外，其他名称Cookie可以任意使用。
+  ```html
+  Cookie: Idea-55166956=29b77da5-2002-44d5-a2ff-08eb2d71099b; Hm_lvt_3944d5fe13ed7bea2ad90c9bca1b1196=1596503132; Hm_lpvt_3944d5fe13ed7bea2ad90c9bca1b1196=1596503166; JSESSIONID=55694CA76D84458F25999D8BA202E965; lang=en
+  ```
+  ```java
+      @WebServlet(urlPatterns = "/pref")
+    public class LanguageServlet extends HttpServlet {
+        private static final Set<String> LANGUAGES = new HashSet<>();
+        static {
+            LANGUAGES.add("en");
+            LANGUAGES.add("zh");
+        }
+
+        @Override
+        protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+            String lang = req.getParameter("lang");
+            if (LANGUAGES.contains(lang)) {
+                // 创建一个新的Cookie:
+                Cookie cookie = new Cookie("lang", lang);
+    // 该Cookie生效的路径范围,浏览器根据此前缀决定是否发送Cookie,
+    // 如果一个Cookie调用了setPath("/user/")，那么浏览器只有在请求以/user/开头的路径时才会附加此Cookie
+                cookie.setPath("/");
+                // 该Cookie有效期:
+                cookie.setMaxAge(8640000); // 8640000秒=100天
+                // 将该Cookie添加到响应:
+                resp.addCookie(cookie);
+            }
+            resp.sendRedirect("/");
+        }
+    }
+  ```
+  读取Session
+  ```java
+    private String parseLanguageFromCookie(HttpServletRequest req) {
+        // 获取请求附带的所有Cookie:
+        Cookie[] cookies = req.getCookies();
+        // 如果获取到Cookie:
+        if (cookies != null) {
+            // 循环每个Cookie:
+            for (Cookie cookie : cookies) {
+                // 如果Cookie名称为lang:
+                if (cookie.getName().equals("lang")) {
+                    // 返回Cookie的值:
+                    return cookie.getValue();
+                }
+            }
+        }
+        // 返回默认值:
+        return "en";
+    }
+##### JSP
+* JSP本质是是一个Servlet
+* `<%-- --%>`之间为注释
+* `<%   %>`之间为java代码
+* `<%=  %>`可以输出一个变量的值
+* `out` 内置变量表示HttpServletResponse的PrintWriter
+* `session`内置变量表示当前`HttpSession`
+* `request` 表示`HttpServletRequest`
+* 访问JSP页面时，直接指定完整路径。例如，http://localhost:8080/hello.jsp
+* `<%@ page import="java.io.*" %>` 导入其他类
+* `<%@ include file="header.jsp"%>` 导入其他jsp文件
+* `<c:out value = "${sessionScope.user.name}"/>` JSP tag
+
+##### MVC
+各个Servlet负责对应路径的请求，此外，一个DispatcherServlet拦截所有的请求，并将响应的请求根据路径分配到相应的Servlet，Servlet返回一个ModelAndView，由渲染引擎渲染。   
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/27/20-02-58-b1a035c9acdc761bfb895b4fce220777-20201127200258-41bd67.png)
+* DispatcherServlet
+维护一个路径到Servlet的映射，可以通过反射扫描所有带`Post Get`注解请求的Controller类，获取注解的属性已经响应Controller类的`doGet doPost`Method的属性        
+  ```java
+  class GetDispatcher {
+      Object instance; // Controller实例
+      Method method; // Controller方法
+      String[] parameterNames; // 方法参数名称
+      Class<?>[] parameterClasses; // 方法参数类型
+  }
+  ```
+  通过反射获得 每个controller类Method对应的Path，以及相应的GetPatcher(Controller实例，Method实例，参数名字，参数类型)。在相应的GetPatcher里，根据参数名从Request接口获得参数值，并根据参数类型实例化参数，之后根据Controller实例，method instance以及参数值，调用方法。
+  ```java
+    class GetDispatcher {
+      ...
+      public ModelAndView invoke(HttpServletRequest request, HttpServletResponse response) {
+          Object[] arguments = new Object[parameterClasses.length];
+          for (int i = 0; i < parameterClasses.length; i++) {
+              String parameterName = parameterNames[i];
+              Class<?> parameterClass = parameterClasses[i];
+              if (parameterClass == HttpServletRequest.class) {
+                  arguments[i] = request;
+              } else if (parameterClass == HttpServletResponse.class) {
+                  arguments[i] = response;
+              } else if (parameterClass == HttpSession.class) {
+                  arguments[i] = request.getSession();
+              } else if (parameterClass == int.class) {
+                  arguments[i] = Integer.valueOf(getOrDefault(request, parameterName, "0"));
+              } else if (parameterClass == long.class) {
+                  arguments[i] = Long.valueOf(getOrDefault(request, parameterName, "0"));
+              } else if (parameterClass == boolean.class) {
+                  arguments[i] = Boolean.valueOf(getOrDefault(request, parameterName, "false"));
+              } else if (parameterClass == String.class) {
+                  arguments[i] = getOrDefault(request, parameterName, "");
+              } else {
+                  throw new RuntimeException("Missing handler for type: " + parameterClass);
+              }
+          }
+          return (ModelAndView) this.method.invoke(this.instance, arguments);
+      }
+
+      private String getOrDefault(HttpServletRequest request, String name, String defaultValue) {
+          String s = request.getParameter(name);
+          return s == null ? defaultValue : s;
+      }
+  }
+    ```
+    渲染引擎，根据返回的ModelAndView的View查找对应的js文件，以及根据Model进行数据填充，并返回。  
+  ```
+          public class ViewEngine {
+          public void render(ModelAndView mv, Writer writer) throws IOException {
+              String view = mv.view;
+              Map<String, Object> model = mv.model;
+              // 根据view找到模板文件:
+              Template template = getTemplateByPath(view);
+              // 渲染并写入Writer:
+              template.write(writer, model);
+          }
+        }
+  ```
+  一个完整的DispatcherServlet
+    ```java
+      public class DispatcherServlet extends HttpServlet {
+      ...
+      @Override
+      protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+          resp.setContentType("text/html");
+          resp.setCharacterEncoding("UTF-8");
+          String path = req.getRequestURI().substring(req.getContextPath().length());
+          // 根据路径查找GetDispatcher:
+          GetDispatcher dispatcher = this.getMappings.get(path);
+          if (dispatcher == null) {
+              // 未找到返回404:
+              resp.sendError(404);
+              return;
+          }
+          // 调用Controller方法获得返回值:
+          ModelAndView mv = dispatcher.invoke(req, resp);
+          // 允许返回null:
+          if (mv == null) {
+              return;
+          }
+          // 允许返回`redirect:`开头的view表示重定向:
+          if (mv.view.startsWith("redirect:")) {
+              resp.sendRedirect(mv.view.substring(9));
+              return;
+          }
+          // 将模板引擎渲染的内容写入响应:
+          PrintWriter pw = resp.getWriter();
+          this.viewEngine.render(mv, pw);
+          pw.flush();
+      }
+    }
+    ```
+##### Filter
+* Filter是一种对HTTP请求进行预处理的组件，它可以构成一个处理链，使得公共处理代码能集中到一起；  
+* Filter适用于日志、登录检查、全局设置等；
+* 设计合理的URL映射可以让Filter链更清晰  
+Filter可以作用在某一个路径之前拦截请求，类似DispatcherServlet，目的是对某个路径下的请求做拦截  
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/27/20-30-44-135d32125be13ef5211a7303ed461726-20201127203044-c5ae67.png)    
+在doFilter()方法内部，要继续处理请求，必须调用chain.doFilter()   
+```java
+@WebFilter(urlPatterns = "/*")//所有路径都过滤
+public class EncodingFilter implements Filter {
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
+        System.out.println("EncodingFilter:doFilter");
+        request.setCharacterEncoding("UTF-8");
+        response.setCharacterEncoding("UTF-8");
+        chain.doFilter(request, response);
+    }
+}
+```
+Servlet规范并没有对@WebFilter注解标注的Filter规定顺序。如果一定要给每个Filter指定顺序，就必须在web.xml文件中对这些Filter再配置一遍   
+```java
+  @WebFilter("/user/*")
+  public class AuthFilter implements Filter {
+      public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+              throws IOException, ServletException {
+          System.out.println("AuthFilter: check authentication");
+          HttpServletRequest req = (HttpServletRequest) request;
+          HttpServletResponse resp = (HttpServletResponse) response;
+          if (req.getSession().getAttribute("user") == null) {
+              // 未登录，自动跳转到登录页:
+              System.out.println("AuthFilter: not signin!");
+              resp.sendRedirect("/signin");//后续的Servlet不会再继续处理该请求
+          } else {
+              // 已登录，继续处理:
+              chain.doFilter(request, response);
+          }
+      }
+  }
+```
+```xml
+@WebFilter(filterName = "EncodingFilter")
+@WebFilter(filterName = "LogFilter")
+<!-- 在web.xml配置如下 -->
+<!-- 过滤顺序：谁的写在上面，谁先被过滤 -->
+  <filter-mapping>
+    <filter-name>EncodingFilter</filter-name>
+    <url-pattern>/*</url-pattern> 
+  </filter-mapping>
+
+  <filter-mapping>
+    <filter-name>LogFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+```
+通过Filter修改请求   
+**对HttpServletRequest进行读取时，只能读取一次。如果Filter调用getInputStream()读取了一次数据，后续Servlet处理时，再次读取，将无法读到任何数**
+```java
+@WebFilter("/upload/*")
+public class ValidateUploadFilter implements Filter {
+
+	@Override
+	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+			throws IOException, ServletException {
+		HttpServletRequest req = (HttpServletRequest) request;
+		HttpServletResponse resp = (HttpServletResponse) response;
+		String digest = req.getHeader("Signature-Method");
+		String signature = req.getHeader("Signature");
+		if (digest == null || digest.isEmpty() || signature == null || signature.isEmpty()) {
+			sendErrorPage(resp, "Missing signature.");
+			return;
+		}
+		MessageDigest md = getMessageDigest(digest);
+		InputStream input = new DigestInputStream(request.getInputStream(), md);
+		ByteArrayOutputStream output = new ByteArrayOutputStream();
+		byte[] buffer = new byte[1024];
+		for (;;) {
+			int len = input.read(buffer);
+			if (len == -1) {
+				break;
+			}
+			output.write(buffer, 0, len);
+		}
+		String actual = toHexString(md.digest());
+		if (!signature.equals(actual)) {
+			sendErrorPage(resp, "Invalid signature. " + actual);
+			return;
+		}
+		chain.doFilter(new ReReadableHttpServletRequest(req, output.toByteArray()), response);//需要借助ReReadableHttpServletRequest代理，再次生成InputStream
+    //chain.doFilter(req,response);//如果这样做，会导致后续的req读取不到数据
+	}
+
+	private String toHexString(byte[] digest) {
+		StringBuilder sb = new StringBuilder();
+		for (byte b : digest) {
+			sb.append(String.format("%02x", b));
+		}
+		return sb.toString();
+	}
+
+	private MessageDigest getMessageDigest(String name) throws ServletException {
+		try {
+			return MessageDigest.getInstance(name);
+		} catch (NoSuchAlgorithmException e) {
+			throw new ServletException(e);
+		}
+	}
+
+	private void sendErrorPage(HttpServletResponse resp, String errorMessage) throws IOException {
+		resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+		PrintWriter pw = resp.getWriter();
+		pw.write("<html><body><h1>");
+		pw.write(errorMessage);
+		pw.write("</h1></body></html>");
+		pw.flush();
+	}
+}
+```
+通过现有的request，以及拦截到的data，伪造一个HttpServletRequest,对`getInputStream``getReader`返回一个新的流。
+```java
+class ReReadableHttpServletRequest extends HttpServletRequestWrapper {
+
+	private byte[] body;
+	private boolean open = false;
+
+	public ReReadableHttpServletRequest(HttpServletRequest request, byte[] body) {
+		super(request);
+		this.body = body;
+	}
+
+	@Override
+	public ServletInputStream getInputStream() throws IOException {
+		if (open) {
+			throw new IllegalStateException("Cannot re-open input stream!");
+		}
+		open = true;
+		return new ServletInputStream() {
+			private int offset = 0;
+
+			@Override
+			public boolean isFinished() {
+				return offset >= body.length;
+			}
+
+			@Override
+			public boolean isReady() {
+				return true;
+			}
+
+			@Override
+			public void setReadListener(ReadListener listener) {
+			}
+
+			@Override
+			public int read() throws IOException {
+				if (offset >= body.length) {
+					return -1;
+				}
+				int n = body[offset] & 0xff;
+				offset++;
+				return n;
+			}
+		};
+	}
+
+	@Override
+	public BufferedReader getReader() throws IOException {
+		if (open) {
+			throw new IllegalStateException("Cannot re-open reader!");
+		}
+		open = true;
+		return new BufferedReader(new InputStreamReader(getInputStream(), "UTF-8"));
+	}
+}
+```
+Filter修改响应
+对应于处理请求很耗时，但是每次返回都同样结果的情况，可以通过Filter将响应缓存，后续的响应直接返回缓存。
+```java
+@WebFilter("/slow/*")
+public class CacheFilter implements Filter {
+
+	private Map<String, byte[]> cache = new ConcurrentHashMap<>();
+
+	@Override
+	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+			throws IOException, ServletException {
+		HttpServletRequest req = (HttpServletRequest) request;
+		HttpServletResponse resp = (HttpServletResponse) response;
+		String url = req.getRequestURI();
+		byte[] data = this.cache.get(url);
+		resp.setHeader("X-Cache-Hit", data == null ? "No" : "Yes");
+		if (data == null) {
+			//创建一个虚拟的HttpServletResponse，将实际的Servlet处理后的响应传递到此response中，获得缓存
+			CachedHttpServletResponse wrapper = new CachedHttpServletResponse(resp);
+			chain.doFilter(request, wrapper);
+			data = wrapper.getContent();
+			cache.put(url, data);
+		}
+		ServletOutputStream output = resp.getOutputStream();
+		output.write(data);
+		output.flush();
+	}
+}
+```
+```java
+class CachedHttpServletResponse extends HttpServletResponseWrapper {
+
+	private boolean open = false;
+	private ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+	public CachedHttpServletResponse(HttpServletResponse response) {
+		super(response);
+	}
+
+	@Override
+	public PrintWriter getWriter() throws IOException {
+		if (open) {
+			throw new IllegalStateException("Cannot re-open writer!");
+		}
+		open = true;
+//		return new PrintWriter(output, false, StandardCharsets.UTF_8);
+		return new PrintWriter(output, false);
+	}
+
+	@Override
+	public ServletOutputStream getOutputStream() throws IOException {
+		if (open) {
+			throw new IllegalStateException("Cannot re-open output stream!");
+		}
+		open = true;
+		return new ServletOutputStream() {
+			@Override
+			public boolean isReady() {
+				return true;
+			}
+
+			@Override
+			public void setWriteListener(WriteListener listener) {
+			}
+
+			@Override
+			public void write(int b) throws IOException {
+				output.write(b);
+			}
+		};
+	}
+
+	public byte[] getContent() {
+		return output.toByteArray();
+	}
+}
+```
+##### Listener
+标注为`WebListener`且实现了特定接口的类会被Web服务器自动初始化   
+* ServletContextListener
+* HttpSessionListener 监听HttpSession的创建和销毁
+* ServletRequestListener 监听ServletRequest的创建和销毁
+* ServletRequestAttributeListener 监听ServletRequest请求的属性变化事件(调用ServletRequest.setAttribute方法)
+* ServletContextAttributeListener 监听ServletContext的属性变化事件(ServletContext.setAttribute)
+  ```java
+  @WebListener
+public class AppListener implements ServletContextListener {
+    @Override
+    public void contextInitialized(ServletContextEvent sce) {
+        System.out.println("Web init");
+    }
+
+    @Override
+    public void contextDestroyed(ServletContextEvent sce) {
+        System.out.println("Web destory");
+    }
+}
+  ```
+一个web服务器可以运行多个webapp，每个webapp,服务器都会创建全局唯一的ServletContext实例    
+ServletContext最大作用就是设置和共享全局信息，ServletRequest、HttpSession等对象提供`getServletContext`接口    
+ServletContext还提供了动态添加Servlet、Filter、Listener等功能，它允许应用程序在运行期间动态添加一个组件
+```
+##### 部署
+请求http:localhost:8080/news/main/list.jsp   
+`request.getContextPath`返回站点的根路径即项目名  /news
+`request.getServletPath`/main/list.jsp
+
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/28/13-36-36-5fbe523114de805c1a6f2957ce554972-20201128133636-167250.png)
+静态资源放在/static目录，有些Web服务器会自动为我们加一个专门负责处理静态文件的Servlet，但如果IndexServlet映射路径为/，会屏蔽掉处理静态文件的Servlet映射。因此，我们需要自己编写一个处理静态文件的FileServlet
+```java
+@WebServlet(urlPatterns = "/static/*")
+public class FileServlet extends HttpServlet {
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        ServletContext ctx = req.getServletContext();
+        // RequestURI包含ContextPath,需要去掉:
+        String urlPath = req.getRequestURI().substring(ctx.getContextPath().length());
+        // 获取真实文件路径:
+        String filepath = ctx.getRealPath(urlPath);
+        if (filepath == null) {
+            // 无法获取到路径:
+            resp.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+        Path path = Paths.get(filepath);
+        if (!path.toFile().isFile()) {
+            // 文件不存在:
+            resp.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+        // 根据文件名猜测Content-Type:
+        String mime = Files.probeContentType(path);
+        if (mime == null) {
+            mime = "application/octet-stream";
+        }
+        resp.setContentType(mime);
+        // 读取文件并写入Response:
+        OutputStream output = resp.getOutputStream();
+        try (InputStream input = new BufferedInputStream(new FileInputStream(filepath))) {
+            input.transferTo(output);
+        }
+        output.flush();
+    }
+}
+```
+但是，运行Web的应用程序通常都业务系统，称业务服务器，不擅长处理静态资源，也不适合直接暴露给用户。so，在生产环境部署时，利用nginx服务器充当反向代理和静态服务器，只有动态请求才放行给应用服务器。  
+![](https://raw.githubusercontent.com/BlissSeven/image/master/java/2020/11/28/13-40-37-1269b23afc08c1aaf225b40b9f4c72dc-20201128134037-dedf3c.png)
+```nginx
+<!-- 静态nginx服务器配置如下 -->
+server {
+    listen 80;
+
+    server_name www.local.liaoxuefeng.com
+
+    # 静态文件根目录:
+    root /path/to/src/main/webapp;
+
+    access_log /var/log/nginx/webapp_access_log;
+    error_log  /var/log/nginx/webapp_error_log;
+
+    # 处理静态文件请求:
+    location /static {
+    }
+
+    # 处理静态文件请求:
+    location /favicon.ico {
+    }
+
+    # 不允许请求/WEB-INF:
+    location /WEB-INF {
+        return 404;
+    }
+
+    # 其他请求转发给Tomcat:
+    location / {
+        proxy_pass       http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+用Nginx配合Tomcat服务器，可以充分发挥Nginx作为网关的优势，既可以高效处理静态文件，也可以把https、防火墙、限速、反爬虫等功能放到Nginx中，使得我们自己的WebApp能专注于业务逻辑
+#### Spring
+##### IOC容器
+容器-为某种特定组件的运行提供必要支持的一个软件环境。Tomcat，Servlet容器。
+IOC容器可以管理轻量的JavaBean组件，提供包括组件的生命周期管理、配置和组装服务、AOP支持，以及建立在AOP基础上的声明式事务服务等底层服务。  
+IOC---Inversion of Control 控制反转，也称依赖注入(Dependency Injection)，将组件的创建+配置与组件的使用分离，由IOC容器负责管理组件的声明周期。
+* 谁创建组件
+* 谁负责根据依赖关系组装组件
+* 销毁时，如何按照依赖顺序依次销毁
+
+```java
+public class BookService {
+    private DataSource dataSource;
+//set 属性注入
+    public void setDataSource(DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
+    //构造器注入
+    public BookService(DataSource datatSource){
+      this.dataSource = dataSource;
+    }
+}
+```
+
+```xml
+<beans>
+    <bean id="dataSource" class="HikariDataSource" />
+    <bean id="bookService" class="BookService">
+        <property name="dataSource" ref="dataSource" />
+    </bean>
+    <bean id="userService" class="UserService">
+        <property name="dataSource" ref="dataSource" />
+    </bean>
+</beans>
+```
 
 
-
-
+计算机存储的当前时间，本质是一个不断增长的整数。
 ### 重写（Override） VS 重载（Overload）
   * Override
     * 重写方法不能抛出新的异常或者比被重写方法方法更加宽泛的异常
@@ -1549,3 +4068,5 @@ Map中不存在重复的Key，相同的Key会把原有的Key-Value替换
      * 被重载的方法可以声明新的异常或更广的检查异常
      * 被重载的方法可以改变访问修饰符
      * 被重载的方法可以改变返回类型
+
+

@@ -68,7 +68,15 @@
 * git push origin <src>:<dst> 将本地src分之推送到远程dst分之  
 * git push origin foo^:master  
 * git push origin  :foo删除远程foo分之  
-
+## git stash
+* git stash save 'message'
+* git stash list 
+* git stash show 显示做了哪些改动，整体的，默认第一个。第二个`git stash show stash@{1}`
+* git stash show -p 显示第一个存储的改动
+* git stash apply 应用某个存储，但不会把存储从存储列表中删除，默认第一个。第二个`git stash apply stash@{1}`
+* git stash pop 恢复之前缓存的目录，将缓存堆栈中对应的stash删除，将对应修改应用到当前工作目录下。
+* git stash drop丢弃stash中数据，默认第一个
+* git stash clear 清除所有缓存的stash
 
 
 
