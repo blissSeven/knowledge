@@ -10,7 +10,7 @@
 * 代码段添加/取消注释  Option+Shift+a
 * 撤销光标的移动    Cmd+u
 * 多光标创建 Cmd+D
-* 在已选择的多行代码段尾创建多光标 Option+shift+i
+* 在已选择的多行代码段尾创建多光标 Option+sh~ift+i
 * 打开最近文件 Cmd+R
 ## 跳转
 * 在打开的多个文件中跳转 Cmd+Tab

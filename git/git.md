@@ -283,12 +283,37 @@ git clone file:///home/bliss/learn/learn-git/.git learn-git-bak.git
 
 git remote -v 
 git remote add zhienng file:///home/bliss/learn/bak/learn-git-zhineng.git
- git push --set-upstream zhineng master
+git push --set-upstream zhineng master
 
 ```
 ### 冲突合并
 远端有人已经提交了,但是本地没有及时的pull,修改已经提交到本地了,push到远端的时候报错  
 * 把远端的fetch下,然后和本地的分支merge下,之后再push
-* 本地的commit先撤销下$git reset HEAD^ $, $git \ pull$后再push
+* 本地的commit先撤销下, $git reset HEAD^$, $git \ pull$后再push
+### github
+#### `github.com/features`
+  * collaborative coding
+  * automation & ci/cd 
+  * security
+  * client apps
+  * project management
+  * team administration
+  * community
+#### github search
+* https://docs.github.com/cn/search-github/getting-started-with-searching-on-github/about-searching-on-github  
+
+|  语法   | example  | 含义 |  
+|  ----  | ----  |   ---  |
+|  in:readme | 	jquery in:readme |    匹配仓库自述文件中提及 "jquery" 的仓库
+| in:name  | jquery in:name | 匹配仓库名称中含有 "jquery" 的仓库 |
+| in:description  | jquery in:name,description  | 匹配仓库名称或说明中含有 "jquery" 的仓库 |
+| in:topics  | jquery in:topics | 单元格 |
+| repo:owner/name  | repo:octocat/hello-world | 匹配特定仓库名称 |
+|followers:n|node followers:>=10000|匹配有 10,000 或更多关注者提及文字 "node" 的仓库
+||styleguide linter followers:1..10|匹配拥有 1 到 10 个关注者并且提及 "styleguide linter" 一词的的仓库|
+|stars:n|	stars:>=500 fork:true language:php | 匹配具有至少 500 个星号，包括复刻的星号（以 PHP 编写）的仓库|
+|filename:FILENAME|filename:.vimrc commands|	 匹配含有 "commands" 字样的 .vimrc 文件|
+||	filename:test_helper path:test language:ruby|匹配 test 目录内名为 test_helper 的 Ruby 文件|
+
 
 
