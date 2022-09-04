@@ -277,7 +277,9 @@ doc/**/*.pdf
 把想忽略的文件添加到 .gitignore ；然后通过 git rm  -- cached name_of_file 的方式删除掉git仓库里面无需跟踪的文件。
 ```
 ### git仓库备份
+![](images/git-2022-09-04-18-04-12.png)
 ```
+--bare 不带工作区
 git clone --bare file:///path/to/repo/.git localRepoName.git
 git clone file:///home/bliss/learn/learn-git/.git learn-git-bak.git
 
@@ -314,6 +316,19 @@ git push --set-upstream zhineng master
 |stars:n|	stars:>=500 fork:true language:php | 匹配具有至少 500 个星号，包括复刻的星号（以 PHP 编写）的仓库|
 |filename:FILENAME|filename:.vimrc commands|	 匹配含有 "commands" 字样的 .vimrc 文件|
 ||	filename:test_helper path:test language:ruby|匹配 test 目录内名为 test_helper 的 Ruby 文件|
-
-
-
+### github 组织
+https://docs.github.com/cn/organizations
+#### 角色
+* Read: Recommended for non-code contributors who want to view or discuss your project  
+* Triage: Recommended for contributors who need to proactively manage issues and pull requests without write access  
+* Write: Recommended for contributors who actively push to your project    
+* Maintain: Recommended for project managers who need to manage the repository without access to sensitive or destructive actions  
+* Admin: Recommended for people who need full access to the project, including sensitive and destructive actions like managing security or deleting a repository  
+#### 角色权限
+https://docs.github.com/cn/organizations/managing-access-to-your-organizations-repositories/repository-roles-for-an-organization  
+#### 分支合并策略
+* merge
+* squash
+* rebase
+#### 通过issue跟踪需求和任务
+#### 通过project管理issue 
