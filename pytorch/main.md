@@ -1,11 +1,6 @@
-# pytorch
-## 目的
-* 复现论文
-* 做实验，实现idea
-* 多一项生活技能
-## 参考资料
-* https://www.learnpytorch.io/
-  * https://github.com/mrdbourke/pytorch-deep-learning
-* https://time.geekbang.org/column/article/426126
-## numpy
 
+
+## Dataset 
+### 抽象类，通过继承Dataset类来自定义数据集的格式、大小和其他属性，后续供DataLoader使用
+`__init__()`  
+`__len__()`   

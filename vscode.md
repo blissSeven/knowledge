@@ -71,7 +71,12 @@
 * 切换字体大小 Cmd+'+'   Cmd+'-'
 ## Cpp
 * 头文件 在命令行输入 edit 或者configuration，打开c_cpp_properites
-* 
+
+## 杂项
+vscode配合zsh，字体推荐Source Code Pro for Powerline
+
+
+
 
 
 
